@@ -1,0 +1,509 @@
+<!-- templates/edit.html -->
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Text File</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+            color: #333;
+        }
+
+        h1 {
+            text-align: center;
+            color: #4A90E2;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 搜索框样式 */
+        .search-box {
+            margin-bottom: 15px;
+            text-align: right;
+        }
+
+        .search-box input[type="text"] {
+            width: 300px;
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        th, td {
+            padding: 12px;
+            border: 1px solid #ddd;
+            text-align: left;
+            vertical-align: middle;
+        }
+
+        th {
+            background-color: #4A90E2;
+            color: white;
+            position: relative; /* 为定位“直接删除”复选框做准备 */
+        }
+
+        /* “直接删除”复选框样式 */
+        .direct-delete-container {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .direct-delete-container input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .direct-delete-container label {
+            font-size: 14px;
+            cursor: pointer;
+            color: #fff;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .buttons {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .buttons button {
+            background-color: #4A90E2;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .buttons button:hover:not(:disabled) {
+            background-color: #357ABD;
+        }
+
+        .control-btn:disabled {
+            background-color: #a0c4e8; /* Grayed out color */
+            cursor: not-allowed;
+            opacity: 0.6;
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* 新增按钮样式 */
+        .control-btn {
+            background-color: #4A90E2; /* Soft blue color */
+            border: none;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-left: 5px;
+        }
+
+        .control-btn:hover:not(:disabled) {
+            background-color: #357ABD; /* Slightly darker blue for hover */
+        }
+
+        /* 新增的“批量删除”按钮样式 */
+        .batch-delete-btn {
+            background-color: #E94B3C; /* 红色按钮 */
+        }
+
+        .batch-delete-btn:hover:not(:disabled) {
+            background-color: #C13C2E;
+        }
+
+        /* 分页样式 */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+            margin-bottom: 20px; /* 保持与表格的间距 */
+        }
+
+        .pagination a, .pagination span {
+            padding: 8px 12px;
+            text-decoration: none;
+            color: #4A90E2;
+            border: 1px solid #4A90E2;
+            border-radius: 4px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .pagination a:hover {
+            background-color: #4A90E2;
+            color: white;
+        }
+
+        .pagination .active {
+            background-color: #4A90E2;
+            color: white;
+            pointer-events: none;
+        }
+
+        .pagination .disabled {
+            color: #ccc;
+            border-color: #ccc;
+            pointer-events: none;
+        }
+
+        /* Modal 样式 */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 1000; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto; /* 15% from the top and centered */
+            padding: 20px;
+            border: 1px solid #888;
+            width: 400px; /* Could be more or less, depending on screen size */
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+
+        .modal-buttons {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .modal-buttons button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+
+        .modal-buttons .confirm-btn {
+            background-color: #4A90E2;
+            color: white;
+        }
+
+        .modal-buttons .confirm-btn:hover {
+            background-color: #357ABD;
+        }
+
+        .modal-buttons .cancel-btn {
+            background-color: #ccc;
+            color: #333;
+        }
+
+        .modal-buttons .cancel-btn:hover {
+            background-color: #999;
+        }
+
+        /* 搜索框响应式调整 */
+        @media (max-width: 600px) {
+            .search-box input[type="text"] {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Edit Text File</h1>
+    <div class="container">
+        <!-- 实时搜索框 -->
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="搜索文本...">
+        </div>
+
+        <table id="textTable">
+            <tr>
+                <th>
+                    <input type="checkbox" id="selectAllCheckbox" title="全选/全不选">
+                </th>
+                <th>行号</th>
+                <th>文本</th>
+                <th>
+                    操作
+                    <!-- 直接删除[√] 复选框放在“操作”列的表头右侧 -->
+                    <div class="direct-delete-container">
+                        <input type="checkbox" id="directDeleteCheckbox">
+                        <label for="directDeleteCheckbox">直接删除[√]</label>
+                    </div>
+                </th>
+            </tr>
+            {% for line in lines %}
+            <tr>
+                <td>
+                    <input type="checkbox" class="select-checkbox" name="selected_lines" value="{{ loop.index + (current_page - 1) * 10 }}">
+                </td>
+                <td>{{ loop.index + (current_page - 1) * 10 }}</td>
+                <td class="line-text">{{ line }}</td>
+                <td>
+                    <!-- 删除按钮 -->
+                    <button type="button" class="control-btn delete-btn" data-line-number="{{ loop.index + (current_page - 1) * 10 }}">删除</button>
+                    <!-- 更新按钮及输入框 -->
+                    <form method="POST" style="display:inline; margin-left: 10px;">
+                        <input type="hidden" name="action" value="update">
+                        <input type="hidden" name="line_number" value="{{ loop.index + (current_page - 1) * 10 }}">
+                        <input type="text" name="updated_text" value="{{ line }}" required style="width: 200px; padding: 5px; margin-right: 5px;">
+                        <button type="submit" class="control-btn">更新</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+
+        <!-- 批量删除按钮 -->
+        <div class="buttons">
+            <button type="button" class="control-btn batch-delete-btn" id="deleteSelectedBtn">删除选中</button>
+        </div>
+
+        <!-- 分页控件 -->
+        <div class="pagination">
+            {% if current_page > 1 %}
+                <a href="{{ url_for('edit_file.edit', page=1) }}">&laquo; 第一页</a>
+                <a href="{{ url_for('edit_file.edit', page=current_page - 1) }}">&lt; 上一页</a>
+            {% else %}
+                <span class="disabled">&laquo; 第一页</span>
+                <span class="disabled">&lt; 上一页</span>
+            {% endif %}
+
+            <!-- 显示页码 -->
+            {% for page in range(1, total_pages + 1) %}
+                {% if page == current_page %}
+                    <span class="active">{{ page }}</span>
+                {% else %}
+                    <a href="{{ url_for('edit_file.edit', page=page) }}">{{ page }}</a>
+                {% endif %}
+            {% endfor %}
+
+            {% if current_page < total_pages %}
+                <a href="{{ url_for('edit_file.edit', page=current_page + 1) }}">下一页 &gt;</a>
+                <a href="{{ url_for('edit_file.edit', page=total_pages) }}">最后一页 &raquo;</a>
+            {% else %}
+                <span class="disabled">下一页 &gt;</span>
+                <span class="disabled">最后一页 &raquo;</span>
+            {% endif %}
+        </div>
+
+        <form method="POST" action="{{ url_for('edit_file.edit', page=current_page) }}">
+            <div class="form-group">
+                <label for="new_line">文本内容（支持多行，每行一条数据）：</label>
+                <textarea id="new_line" name="new_line" rows="5" required></textarea>
+            </div>
+            <input type="hidden" name="action" value="add">
+            <button type="submit" class="control-btn">添加</button>
+        </form>
+
+        <div style="text-align: center; margin-top: 20px;">
+            <button class="control-btn" onclick="window.location.href='/'">返回主页</button>
+        </div>
+    </div>
+
+    <!-- 删除确认模态框 -->
+    <div id="deleteModal" class="modal">
+        <div class="modal-content">
+            <h3>确认删除</h3>
+            <p id="modalMessage">您确定要删除吗？</p>
+            <form id="deleteForm" method="POST">
+                <input type="hidden" name="action" id="modalAction" value="">
+                <div id="modalLineNumbers">
+                    <!-- 动态填充行号 -->
+                </div>
+                <div class="modal-buttons">
+                    <button type="submit" class="confirm-btn">确认</button>
+                    <button type="button" class="cancel-btn" onclick="closeModal()">取消</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // 获取模态框元素
+        const modal = document.getElementById('deleteModal');
+        const deleteButtons = document.querySelectorAll('.delete-btn');
+        const modalLineNumbers = document.getElementById('modalLineNumbers');
+        const modalAction = document.getElementById('modalAction');
+        const modalMessage = document.getElementById('modalMessage');
+        const directDeleteCheckbox = document.getElementById('directDeleteCheckbox');
+        const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+        const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+        const searchInput = document.getElementById('searchInput');
+        const tableRows = document.querySelectorAll('#textTable tr:not(:first-child)'); // Exclude header
+
+        // 为每个删除按钮添加点击事件监听器
+        deleteButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const lineNumber = button.getAttribute('data-line-number');
+                if (directDeleteCheckbox.checked) {
+                    // 直接删除，无需弹出模态框
+                    // 创建一个临时表单并提交
+                    const tempForm = document.createElement('form');
+                    tempForm.method = 'POST';
+                    tempForm.action = "{{ url_for('edit_file.edit', page=current_page) }}";
+
+                    const actionInput = document.createElement('input');
+                    actionInput.type = 'hidden';
+                    actionInput.name = 'action';
+                    actionInput.value = 'delete';
+                    tempForm.appendChild(actionInput);
+
+                    const lineNumberInput = document.createElement('input');
+                    lineNumberInput.type = 'hidden';
+                    lineNumberInput.name = 'line_number';
+                    lineNumberInput.value = lineNumber;
+                    tempForm.appendChild(lineNumberInput);
+
+                    document.body.appendChild(tempForm);
+                    tempForm.submit();
+                } else {
+                    // 弹出模态框确认删除
+                    modalAction.value = 'delete';
+                    modalLineNumbers.innerHTML = `<input type="hidden" name="line_number" value="${lineNumber}">`;
+                    modalMessage.innerText = '您确定要删除这行吗？';
+                    openModal();
+                }
+            });
+        });
+
+        // 打开模态框
+        function openModal() {
+            modal.style.display = 'block';
+        }
+
+        // 关闭模态框
+        function closeModal() {
+            modal.style.display = 'none';
+            // 清空模态框内容
+            modalLineNumbers.innerHTML = '';
+            modalAction.value = '';
+            modalMessage.innerText = '您确定要删除吗？';
+        }
+
+        // 当用户点击模态框外部时，关闭模态框
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
+
+        // 批量删除按钮点击事件
+        deleteSelectedBtn.addEventListener('click', () => {
+            const selectedCheckboxes = document.querySelectorAll('.select-checkbox:checked');
+            const selectedCount = selectedCheckboxes.length;
+
+            if (selectedCount === 0) {
+                // 弹出模态框提示未选择
+                modalAction.value = '';
+                modalLineNumbers.innerHTML = '';
+                modalMessage.innerText = '请至少选择一行进行删除。';
+                openModal();
+                return;
+            }
+
+            const selectedLines = Array.from(selectedCheckboxes).map(cb => cb.value);
+            if (directDeleteCheckbox.checked) {
+                // 直接删除，无需弹出模态框
+                // 创建一个临时表单并提交
+                const tempForm = document.createElement('form');
+                tempForm.method = 'POST';
+                tempForm.action = "{{ url_for('edit_file.edit', page=current_page) }}";
+
+                const actionInput = document.createElement('input');
+                actionInput.type = 'hidden';
+                actionInput.name = 'action';
+                actionInput.value = 'delete_selected';
+                tempForm.appendChild(actionInput);
+
+                selectedLines.forEach(lineNumber => {
+                    const lineNumberInput = document.createElement('input');
+                    lineNumberInput.type = 'hidden';
+                    lineNumberInput.name = 'selected_lines';
+                    lineNumberInput.value = lineNumber;
+                    tempForm.appendChild(lineNumberInput);
+                });
+
+                document.body.appendChild(tempForm);
+                tempForm.submit();
+            } else {
+                // 弹出模态框确认删除
+                modalAction.value = 'delete_selected';
+                modalLineNumbers.innerHTML = selectedLines.map(lineNumber =>
+                    `<input type="hidden" name="selected_lines" value="${lineNumber}">`
+                ).join('');
+                modalMessage.innerText = `您确定要删除选中的 ${selectedCount} 行吗？`;
+                openModal();
+            }
+        });
+
+        // 全选复选框功能
+        selectAllCheckbox.addEventListener('change', () => {
+            const checkboxes = document.querySelectorAll('.select-checkbox');
+            checkboxes.forEach(cb => {
+                cb.checked = selectAllCheckbox.checked;
+            });
+        });
+
+        // 实时搜索与过滤功能
+        searchInput.addEventListener('input', () => {
+            const filter = searchInput.value.toLowerCase();
+            tableRows.forEach(row => {
+                const text = row.querySelector('.line-text').textContent.toLowerCase();
+                if (text.includes(filter)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
