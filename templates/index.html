@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>reading</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 20px;
+            background-color: #fafafa; /* Lighter background */
+            color: #333;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 28px;
+            color: #4A90E2; /* Soft blue color */
+        }
+
+        #text-container {
+            margin-bottom: 20px;
+            font-size: 24px; /* Larger text for readability */
+            color: #666;
+        }
+
+        .controls, .play-options {
+            display: flex;
+            justify-content: center;
+            gap: 30px; /* Increased gap for better spacing */
+            margin-bottom: 20px; /* Added margin for spacing between sections */
+        }
+
+        .control-btn {
+            background-color: #4A90E2; /* Soft blue color */
+            border: none;
+            color: white;
+            padding: 16px 32px; /* Increased padding for larger buttons */
+            border-radius: 22px; /* Rounded edges */
+            font-size: 18px; /* Increased font size */
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0, 123, 255, 0.24), 0 1px 3px rgba(0, 0, 0, 0.08);
+            transition: background-color 0.3s, transform 0.3s, opacity 0.3s;
+        }
+
+        .control-btn:hover:not(:disabled) {
+            background-color: #357ABD; /* Slightly darker blue for hover */
+            transform: translateY(-2px);
+            box-shadow: 0 7px 14px rgba(0, 123, 255, 0.24), 0 3px 6px rgba(0, 0, 0, 0.08);
+        }
+
+        .control-btn:disabled {
+            background-color: #a0c4e8; /* Grayed out color */
+            cursor: not-allowed;
+            opacity: 0.6;
+            transform: none;
+            box-shadow: none;
+        }
+
+        input[type="number"], input[type="range"] {
+            border: 2px solid #ddd; /* Light border for inputs */
+            border-radius: 10px;
+            padding: 10px; /* Increased padding for larger input boxes */
+            font-size: 18px; /* Increased font size */
+            width: auto; /* Adjust width automatically */
+            text-align: center;
+            margin: 0 10px; /* Increased margin for better spacing */
+        }
+
+        .play-options input, .play-options span {
+            color: #333;
+            font-size: 18px; /* Increased font size */
+        }
+    </style>
+</head>
+<body>
+<h1>Reading</h1>
+<div id="text-container">
+    <p id="current-text">Text will appear here...</p>
+</div>
+<div class="controls">
+    <button class="control-btn" onclick="previousLine()">⏮</button>
+    <button class="control-btn" id="playPauseBtn" onclick="togglePlayPause()">▶️</button>
+    <button class="control-btn" onclick="nextLine()">⏭</button>
+</div>
+<div class="play-options">
+    <input type="number" id="play-count" min="1" value="1" title="Play Count">
+    <span>Play Count</span>
+    <input type="number" id="play-interval" min="1" value="1" title="Play Interval (seconds)">
+    <span>Play Interval (seconds)</span>
+</div>
+<div class="controls">
+    <button class="control-btn" onclick="setPlayOptions()">Set Play Options</button>
+</div>
+<div class="controls">
+    <button class="control-btn" onclick="window.location.href='/file/edit'">Edit File</button>
+</div>
+
+<script>
+    let intervalId = null;
+    let isPlaying = false;
+
+    function togglePlayPause() {
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        disableButton(playPauseBtn, 500); // Disable for 0.5s
+        if (!isPlaying) {
+            fetch('/play', {method: 'POST'})
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log(data.status);
+                        intervalId = setInterval(updateText, 1000);
+                        playPauseBtn.textContent = '⏸'; // Change to pause symbol
+                        isPlaying = true;
+                    });
+        } else {
+            fetch('/pause', {method: 'POST'})
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log(data.status);
+                        clearInterval(intervalId);
+                        intervalId = null;
+                        playPauseBtn.textContent = '▶️'; // Change to play symbol
+                        isPlaying = false;
+                    });
+        }
+    }
+
+    function previousLine() {
+        const prevBtn = event.target;
+        disableButton(prevBtn, 500); // Disable for 0.5s
+        fetch('/previous', {method: 'POST'})
+                .then(response => response.json())
+                .then(data => {
+                    updateText(); // Update text to reflect the previous line
+                });
+    }
+
+    function nextLine() {
+        const nextBtn = event.target;
+        disableButton(nextBtn, 500); // Disable for 0.5s
+        fetch('/next', {method: 'POST'})
+                .then(response => response.json())
+                .then(data => {
+                    updateText(); // Update text to reflect the next line
+                });
+    }
+
+    function setPlayOptions() {
+        const playCount = document.getElementById('play-count').value;
+        const playInterval = document.getElementById('play-interval').value;
+        const setPlayOptionsBtn = document.querySelector('button[onclick="setPlayOptions()"]');
+
+        fetch('/set_play_options', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: `play_count=${playCount}&play_interval=${playInterval}`
+        }).then(response => response.json())
+                .then(data => {
+                    console.log(data.status);
+                    // Disable the button
+                    setPlayOptionsBtn.disabled = true;
+                    // Re-enable the button after 3 seconds
+                    setTimeout(() => {
+                        setPlayOptionsBtn.disabled = false;
+                    }, 3000);
+                });
+    }
+
+    function updateText() {
+        fetch('/get_current_text')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('current-text').innerText = data.text;
+                });
+    }
+
+    function disableButton(button, duration) {
+        button.disabled = true;
+        setTimeout(() => {
+            button.disabled = false;
+        }, duration);
+    }
+
+    window.addEventListener('beforeunload', function () {
+        fetch('/stop', {method: 'POST'}); // Stop playback when the page is closed
+    });
+</script>
+</body>
+</html>
