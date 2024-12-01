@@ -179,7 +179,7 @@ def get_current_text():
     if 0 <= session['current_index'] < total_lines:
         return jsonify({'text': lines[session['current_index']]})
     else:
-        return jsonify({'text': '没有更多文本了。'})
+        return jsonify({'text': 'no more'})
 
 @app.route('/stop', methods=['POST'])
 def stop():
