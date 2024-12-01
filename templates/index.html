@@ -161,7 +161,6 @@
     </style>
 </head>
 <body>
-<h1>Reading</h1>
 <div id="text-container">
     <p id="current-text">Text will appear here...</p>
 </div>
@@ -243,7 +242,7 @@
 
     // 更新当前文本显示
     function updateText(text) {
-        document.getElementById('current-text').innerText = `当前文本: ${text}`;
+        document.getElementById('current-text').innerText = `${text}`;
     }
 
     function togglePlayPause() {
@@ -297,7 +296,7 @@
 
                     playLoop();
                 } else if (data.status === 'no_more_text') {
-                    alert('没有更多文本了。');
+                    alert('no more。');
                     isPlaying = false;
                     document.getElementById('playPauseBtn').textContent = '▶️';
                 }
@@ -316,7 +315,7 @@
                         playNext();
                     }
                 } else if (data.status === 'no_more_text') {
-                    alert('没有更多文本了。');
+                    alert('no more。');
                     isPlaying = false;
                     document.getElementById('playPauseBtn').textContent = '▶️';
                 }
@@ -337,7 +336,7 @@
                 if (data.status === 'options_set') {
                     // 可选：显示成功消息或其他反馈
                 } else if (data.status === 'error') {
-                    alert(`错误: ${data.message}`);
+                    alert(`Error: ${data.message}`);
                 }
             })
             .catch(error => {
@@ -366,7 +365,7 @@
                                 document.getElementById('playPauseBtn').textContent = '⏸';
                                 playNext();
                             } else {
-                                alert('已经是第一行了。');
+                                alert('it\'s first');
                             }
                         })
                         .catch(error => {
@@ -400,7 +399,7 @@
                                 document.getElementById('playPauseBtn').textContent = '⏸';
                                 playNext();
                             } else {
-                                alert('没有更多文本了。');
+                                alert('no more');
                             }
                         })
                         .catch(error => {
