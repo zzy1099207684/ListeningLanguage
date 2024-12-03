@@ -1,36 +1,41 @@
+# app.py
+
 import time
 from flask import Flask, render_template, request, jsonify, send_from_directory, session
 from flask_session import Session
 from gtts import gTTS
 import tempfile
 import atexit
-from edit_file import edit_file_blueprint  # 确保 edit_file.py 文件存在并定义了 edit_file_blueprint
+from edit_file import edit_file_blueprint  # Ensure edit_file.py exists and defines edit_file_blueprint
 
 import subprocess
 import sys
 import os
 import random
 import hashlib
-
-
+import json
+from deep_translator import GoogleTranslator  # Newly added import
+import threading  # Newly added import
 
 app = Flask(__name__)
 app.register_blueprint(edit_file_blueprint, url_prefix='/file')
 
-# 配置 Flask-Session
-app.config['SESSION_TYPE'] = 'filesystem'  # 使用文件系统存储会话数据
-app.config['SESSION_FILE_DIR'] = os.path.join(tempfile.gettempdir(), 'flask_sessions')  # 会话文件存储目录
+# Configure Flask-Session
+app.config['SESSION_TYPE'] = 'filesystem'  # Use filesystem to store session data
+app.config['SESSION_FILE_DIR'] = os.path.join(tempfile.gettempdir(), 'flask_sessions')  # Session file storage directory
 app.config['SESSION_PERMANENT'] = False
-app.config['SECRET_KEY'] = 'your_secret_key_here'  # 替换为您的密钥
+app.config['SECRET_KEY'] = 'your_secret_key_here'  # Replace with your secret key
 
-# 初始化 Session
+# Initialize Session
 Session(app)
 
-# 文本文件路径
+# Text file path
 TEXT_FILE_PATH = 'store.txt'
 
-# 读取文本文件
+# Read text file
 def read_text_file(file_path):
+    if not os.path.exists(file_path):
+        return []
     with open(file_path, 'r', encoding='utf-8') as file:
         lines = file.readlines()
     return [line.strip() for line in lines if line.strip()]
@@ -38,18 +43,29 @@ def read_text_file(file_path):
 lines = read_text_file(TEXT_FILE_PATH)
 total_lines = len(lines)
 
-# 存储临时文件列表
+# Store temporary files list
 temp_files = []
 
-# 临时音频文件存储根目录
+# Temporary audio files storage root directory
 AUDIO_ROOT_DIR = os.path.join(tempfile.gettempdir(), 'flask_audio')
 os.makedirs(AUDIO_ROOT_DIR, exist_ok=True)
 
-# 持久化音频文件存储目录
+# Persistent audio files storage directory
 AUDIO_PERSISTENT_DIR = 'audio_files'
 os.makedirs(AUDIO_PERSISTENT_DIR, exist_ok=True)
 
-# 注册文件删除函数
+# Translation storage file path
+TRANSLATIONS_FILE_PATH = 'translations.json'
+translations_lock = threading.Lock()
+
+# Load existing translations
+if os.path.exists(TRANSLATIONS_FILE_PATH):
+    with open(TRANSLATIONS_FILE_PATH, 'r', encoding='utf-8') as f:
+        translations = json.load(f)
+else:
+    translations = {}
+
+# Register file deletion function
 def delete_temp_files():
     try:
         for session_dir in os.listdir(AUDIO_ROOT_DIR):
@@ -65,7 +81,7 @@ def delete_temp_files():
 atexit.register(delete_temp_files)
 
 def shuffle_random_order(start_index):
-    """生成一个以 start_index 开始的随机顺序列表。"""
+    """Generate a random order list starting with start_index."""
     indices = list(range(total_lines))
     if start_index in indices:
         indices.remove(start_index)
@@ -79,9 +95,9 @@ def initialize_session_vars():
     if 'play_count' not in session:
         session['play_count'] = 1
     if 'play_interval' not in session:
-        session['play_interval'] = 1  # 秒
+        session['play_interval'] = 1  # seconds
     if 'play_mode' not in session:
-        session['play_mode'] = 'sequential'  # 'sequential' 或 'random'
+        session['play_mode'] = 'sequential'  # 'sequential' or 'random'
     if 'random_order' not in session:
         session['random_order'] = list(range(total_lines))
         random.shuffle(session['random_order'])
@@ -102,19 +118,20 @@ def get_audio_file_path(text):
 def play():
     global lines, total_lines
 
-    # 重新读取文本文件，防止修改后内容不同步
+    # Re-read text file to prevent desynchronization after modifications
     lines = read_text_file(TEXT_FILE_PATH)
     total_lines = len(lines)
 
     if session['play_mode'] == 'sequential':
         if session['current_index'] >= total_lines:
-            return jsonify({'status': 'no_more_text'})
+            # Reset to the first line instead of sending 'no_more_text'
+            session['current_index'] = 0
 
         line_index = session['current_index']
         text = lines[line_index]
         filename, file_path = get_audio_file_path(text)
 
-        # 如果音频文件已经存在，则不再生成
+        # If audio file already exists, do not regenerate
         if not os.path.exists(file_path):
             tts = gTTS(text=text, lang='en', tld='com')
             tts.save(file_path)
@@ -127,11 +144,14 @@ def play():
             'current_index': line_index
         }
 
+        # **Removed the following line to prevent automatic increment**
+        # session['current_index'] += 1
+
         return jsonify(response)
 
     elif session['play_mode'] == 'random':
         if session['random_index'] >= total_lines:
-            # 重新生成随机顺序
+            # Regenerate random order starting from the first item
             if session['random_order']:
                 session['random_order'] = shuffle_random_order(session['random_order'][0])
             else:
@@ -142,7 +162,7 @@ def play():
         text = lines[line_index]
         filename, file_path = get_audio_file_path(text)
 
-        # 如果音频文件已经存在，则不再生成
+        # If audio file already exists, do not regenerate
         if not os.path.exists(file_path):
             tts = gTTS(text=text, lang='en', tld='com')
             tts.save(file_path)
@@ -154,6 +174,9 @@ def play():
             'text': text,
             'current_index': line_index
         }
+
+        # Increment random_index to play the next random sentence
+        session['random_index'] += 1
 
         return jsonify(response)
 
@@ -191,12 +214,12 @@ def stop():
 def toggle_play_mode():
     if session['play_mode'] == 'sequential':
         session['play_mode'] = 'random'
-        # 生成新的随机顺序，以当前行开始
+        # Generate a new random order starting from the current line
         session['random_order'] = shuffle_random_order(session['current_index'])
         session['random_index'] = 0
     else:
         session['play_mode'] = 'sequential'
-        # 保持 current_index 不变，以继续顺序播放
+        # Keep current_index unchanged to continue sequential playback
         pass
 
     return jsonify({'status': 'mode_toggled', 'play_mode': session['play_mode']})
@@ -210,9 +233,10 @@ def next_line():
     if session['play_mode'] == 'sequential':
         if session['current_index'] < total_lines - 1:
             session['current_index'] += 1
-            return jsonify({'status': 'success', 'current_index': session['current_index']})
         else:
-            return jsonify({'status': 'no_more_text'})
+            # Reset to the first line instead of sending 'no_more_text'
+            session['current_index'] = 0
+        return jsonify({'status': 'success', 'current_index': session['current_index']})
     elif session['play_mode'] == 'random':
         if session['random_index'] < total_lines - 1:
             session['random_index'] += 1
@@ -241,6 +265,28 @@ def previous_line():
             return jsonify({'status': 'no_previous'})
     else:
         return jsonify({'status': 'error', 'message': 'Unknown play mode.'})
+
+# Newly added translation route, uses deep_translator and caches translation results
+@app.route('/translate', methods=['POST'])
+def translate():
+    data = request.get_json()
+    text = data.get('text', '')
+    if not text:
+        return jsonify({'status': 'error', 'message': 'No text provided.'}), 400
+    try:
+        with translations_lock:
+            if text in translations:
+                translated_text = translations[text]
+            else:
+                translated_text = GoogleTranslator(source='en', target='zh-CN').translate(text)
+                translations[text] = translated_text
+                # Save to translation file
+                with open(TRANSLATIONS_FILE_PATH, 'w', encoding='utf-8') as f:
+                    json.dump(translations, f, ensure_ascii=False, indent=4)
+        return jsonify({'status': 'success', 'translated_text': translated_text})
+    except Exception as e:
+        print(f"Translation error: {e}")
+        return jsonify({'status': 'error', 'message': 'Translation failed.'}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=80, debug=True)

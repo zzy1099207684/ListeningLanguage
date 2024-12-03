@@ -1,3 +1,5 @@
+<!-- templates/index.html -->
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,8 +8,14 @@
     <title>Reading</title>
     <style>
         body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
             font-family: 'Arial', sans-serif;
-            margin: 10px;
+            margin: 0;
+            padding: 10px;
             background-color: #fafafa;
             color: #333;
             text-align: center;
@@ -26,7 +34,14 @@
             padding: 0 10px;
         }
 
-        .controls, .play-options {
+        #translated-text {
+            margin-top: 10px;
+            font-size: 16px;
+            color: #888;
+            font-style: italic;
+        }
+
+        .controls, .play-options, .display-options {
             display: flex;
             flex-direction: row;
             justify-content: center;
@@ -97,6 +112,18 @@
             margin: 5px 0;
         }
 
+        .display-options {
+            gap: 10px;
+        }
+
+        .display-options label {
+            font-size: 16px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
         /* 音频播放器隐藏 */
         #audio_player {
             display: none;
@@ -110,6 +137,10 @@
 
             #text-container {
                 font-size: 16px;
+            }
+
+            #translated-text {
+                font-size: 14px;
             }
 
             .control-btn {
@@ -126,6 +157,10 @@
             }
 
             .play-options span {
+                font-size: 14px;
+            }
+
+            .display-options label {
                 font-size: 14px;
             }
         }
@@ -161,312 +196,371 @@
     </style>
 </head>
 <body>
-<div id="text-container">
-    <p id="current-text">Text will appear here...</p>
-</div>
-<div class="controls">
-    <button class="control-btn" id="previousBtn" onclick="previousLine()">⏮</button>
-    <button class="control-btn" id="playPauseBtn" onclick="togglePlayPause()">▶️</button>
-    <button class="control-btn" id="nextBtn" onclick="nextLine()">⏭</button>
-</div>
-<div class="play-options">
-    <div>
-        <button id="play-count-btn" onclick="changePlayCount()">1</button>
-        <span>Play Count</span>
+    <div id="text-container">
+        <p id="current-text">Text will appear here...</p>
+        <p id="translated-text">翻译将在这里显示...</p>
     </div>
-    <div>
-        <button id="play-interval-btn" onclick="changePlayInterval()">1</button>
-        <span>Play Interval (seconds)</span>
+    <div class="controls">
+        <button class="control-btn" id="previousBtn" onclick="previousLine()">⏮</button>
+        <button class="control-btn" id="playPauseBtn" onclick="togglePlayPause()">▶️</button>
+        <button class="control-btn" id="nextBtn" onclick="nextLine()">⏭</button>
     </div>
-</div>
-<!-- 移除“Set Play Options”按钮 -->
-<!--
-<div class="controls">
-    <button class="control-btn" onclick="setPlayOptions()">Set Play Options</button>
-</div>
--->
-<div class="controls">
-    <button class="control-btn" onclick="window.location.href='/file/edit'">Edit File</button>
-</div>
-<div class="controls">
-    <button class="control-btn" id="toggleModeBtn" onclick="togglePlayMode()">顺序</button>
-</div>
+    <div class="play-options">
+        <div>
+            <button id="play-count-btn" onclick="changePlayCount()">1</button>
+            <span>Play Count</span>
+        </div>
+        <div>
+            <button id="play-interval-btn" onclick="changePlayInterval()">1</button>
+            <span>Play Interval (seconds)</span>
+        </div>
+    </div>
+    <!-- 新增显示选项 -->
+    <div class="display-options">
+        <label>
+            <input type="checkbox" id="toggleEnglish" checked>
+            显示英文
+        </label>
+        <label>
+            <input type="checkbox" id="toggleTranslation" checked>
+            显示翻译
+        </label>
+    </div>
+    <!-- 移除“Set Play Options”按钮 -->
+    <!--
+    <div class="controls">
+        <button class="control-btn" onclick="setPlayOptions()">Set Play Options</button>
+    </div>
+    -->
+    <div class="controls">
+        <button class="control-btn" onclick="window.location.href='/file/edit'">Edit File</button>
+    </div>
+    <div class="controls">
+        <button class="control-btn" id="toggleModeBtn" onclick="togglePlayMode()">顺序</button>
+    </div>
 
-<!-- 音频播放器 -->
-<audio id="audio_player" controls></audio>
+    <!-- 音频播放器 -->
+    <audio id="audio_player" controls></audio>
 
-<script>
-    let isPlaying = false;
-    let playCount = 1;
-    let playInterval = 1000; // 毫秒
-    let currentPlay = 0;
-    let audioPlayer = document.getElementById('audio_player');
-    let toggleModeBtn = document.getElementById('toggleModeBtn');
-    let previousBtn = document.getElementById('previousBtn');
-    let nextBtn = document.getElementById('nextBtn');
-    let playCountBtn = document.getElementById('play-count-btn');
-    let playIntervalBtn = document.getElementById('play-interval-btn');
+    <script>
+        let isPlaying = false;
+        let playCount = 1;
+        let playInterval = 1000; // 毫秒
+        let currentPlay = 0;
+        let audioPlayer = document.getElementById('audio_player');
+        let toggleModeBtn = document.getElementById('toggleModeBtn');
+        let previousBtn = document.getElementById('previousBtn');
+        let nextBtn = document.getElementById('nextBtn');
+        let playCountBtn = document.getElementById('play-count-btn');
+        let playIntervalBtn = document.getElementById('play-interval-btn');
+        let translatedText = document.getElementById('translated-text');
+        let currentText = document.getElementById('current-text');
 
-    // 初始化播放模式按钮和按钮状态
-    fetch('/get_play_mode')
-        .then(response => response.json())
-        .then(data => {
-            if (data.play_mode === 'sequential') {
-                toggleModeBtn.textContent = '顺序';
-                enableNavigationButtons();
-            } else if (data.play_mode === 'random') {
-                toggleModeBtn.textContent = '随机';
-                disableNavigationButtons();
+        // 新增显示选项元素
+        let toggleEnglish = document.getElementById('toggleEnglish');
+        let toggleTranslation = document.getElementById('toggleTranslation');
+
+        // 初始化播放模式按钮和按钮状态
+        fetch('/get_play_mode')
+            .then(response => response.json())
+            .then(data => {
+                if (data.play_mode === 'sequential') {
+                    toggleModeBtn.textContent = '顺序';
+                    enableNavigationButtons();
+                } else if (data.play_mode === 'random') {
+                    toggleModeBtn.textContent = '随机';
+                    disableNavigationButtons();
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching play mode:', error);
+            });
+
+        // 初始化播放选项按钮显示
+        fetch('/get_play_options') // 确保后端已经添加了此路由
+            .then(response => response.json())
+            .then(data => {
+                if (data.play_count) {
+                    playCount = data.play_count;
+                    playCountBtn.textContent = playCount;
+                }
+                if (data.play_interval) {
+                    playInterval = data.play_interval * 1000;
+                    playIntervalBtn.textContent = data.play_interval;
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching play options:', error);
+            });
+
+        // 显示选项初始化
+        toggleEnglish.addEventListener('change', function() {
+            if (this.checked) {
+                currentText.style.display = 'block';
+            } else {
+                currentText.style.display = 'none';
             }
-        })
-        .catch(error => {
-            console.error('Error fetching play mode:', error);
         });
 
-    // 初始化播放选项按钮显示
-    fetch('/get_play_options') // 确保后端已经添加了此路由
-        .then(response => response.json())
-        .then(data => {
-            if (data.play_count) {
-                playCount = data.play_count;
-                playCountBtn.textContent = playCount;
+        toggleTranslation.addEventListener('change', function() {
+            if (this.checked) {
+                translatedText.style.display = 'block';
+            } else {
+                translatedText.style.display = 'none';
             }
-            if (data.play_interval) {
-                playInterval = data.play_interval * 1000;
-                playIntervalBtn.textContent = data.play_interval;
-            }
-        })
-        .catch(error => {
-            console.error('Error fetching play options:', error);
         });
 
-    // 更新当前文本显示
-    function updateText(text) {
-        document.getElementById('current-text').innerText = `${text}`;
-    }
-
-    function togglePlayPause() {
-        const playPauseBtn = document.getElementById('playPauseBtn');
-        disableButton(playPauseBtn, 500); // Disable for 0.5s
-
-        if (!isPlaying) {
-            isPlaying = true;
-            playPauseBtn.textContent = '⏸'; // Change to pause symbol
-            playNext();
-        } else {
-            isPlaying = false;
-            audioPlayer.pause();
-            playPauseBtn.textContent = '▶️'; // Change to play symbol
+        // 更新当前文本显示并翻译
+        function updateText(text) {
+            currentText.innerText = `${text}`;
+            translateText(text);
         }
-    }
 
-    function playNext() {
-        if (!isPlaying) return;
-
-        fetch('/play', {method: 'POST'})
+        function translateText(text) {
+            // 使用服务器端的翻译API
+            fetch('/translate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({text: text})
+            })
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
-                    const audioUrl = data.audio_url;
-                    const text = data.text;
-                    updateText(text);
-                    currentPlay = 0;
+                    translatedText.innerText = `${data.translated_text}`;
+                } else {
+                    translatedText.innerText = '翻译失败。';
+                }
+            })
+            .catch(error => {
+                console.error('Error during translation:', error);
+                translatedText.innerText = '翻译错误。';
+            });
+        }
 
-                    function playLoop() {
-                        if (!isPlaying) return;
+        function togglePlayPause() {
+            const playPauseBtn = document.getElementById('playPauseBtn');
+            disableButton(playPauseBtn, 200); // Disable for 0.5s
 
-                        audioPlayer.src = audioUrl;
-                        audioPlayer.style.display = 'block';
-                        audioPlayer.play();
+            if (!isPlaying) {
+                isPlaying = true;
+                playPauseBtn.textContent = '⏸'; // Change to pause symbol
+                playNext();
+            } else {
+                isPlaying = false;
+                audioPlayer.pause();
+                playPauseBtn.textContent = '▶️'; // Change to play symbol
+            }
+        }
 
-                        audioPlayer.onended = () => {
-                            currentPlay++;
-                            if (currentPlay < playCount) {
-                                // 播放次数未达到，重新播放当前音频
-                                setTimeout(playLoop, playInterval);
-                            } else {
-                                // 播放次数达到，重置并等待间隔后播放下一句
-                                currentPlay = 0;
-                                setTimeout(() => {
-                                    moveToNextLine();
-                                }, playInterval);
-                            }
-                        };
+        function playNext() {
+            if (!isPlaying) return;
+
+            fetch('/play', {method: 'POST'})
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        const audioUrl = data.audio_url;
+                        const text = data.text;
+                        updateText(text);
+                        currentPlay = 0;
+
+                        function playLoop() {
+                            if (!isPlaying) return;
+
+                            audioPlayer.src = audioUrl;
+                            audioPlayer.style.display = 'block';
+                            audioPlayer.play();
+
+                            audioPlayer.onended = () => {
+                                currentPlay++;
+                                if (currentPlay < playCount) {
+                                    // 播放次数未达到，重新播放当前音频
+                                    setTimeout(playLoop, playInterval);
+                                } else {
+                                    // 播放次数达到，重置并等待间隔后播放下一句
+                                    currentPlay = 0;
+                                    setTimeout(() => {
+                                        moveToNextLine();
+                                    }, playInterval);
+                                }
+                            };
+                        }
+
+                        playLoop();
+                    } else if (data.status === 'no_more_text') {
+                        alert('没有更多文本了。');
+                        isPlaying = false;
+                        document.getElementById('playPauseBtn').textContent = '▶️';
                     }
+                })
+                .catch(error => {
+                    console.error('Error during playNext:', error);
+                });
+        }
 
-                    playLoop();
-                } else if (data.status === 'no_more_text') {
-                    alert('no more');
-                    isPlaying = false;
-                    document.getElementById('playPauseBtn').textContent = '▶️';
-                }
-            })
-            .catch(error => {
-                console.error('Error during playNext:', error);
-            });
-    }
-
-    function moveToNextLine() {
-        fetch('/next', {method: 'POST'})
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    if (isPlaying) {
-                        playNext();
+        function moveToNextLine() {
+            fetch('/next', {method: 'POST'})
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        if (isPlaying) {
+                            playNext();
+                        }
+                    } else if (data.status === 'no_more_text') {
+                        alert('没有更多文本了。');
+                        isPlaying = false;
+                        document.getElementById('playPauseBtn').textContent = '▶️';
                     }
-                } else if (data.status === 'no_more_text') {
-                    alert('no more');
-                    isPlaying = false;
-                    document.getElementById('playPauseBtn').textContent = '▶️';
-                }
+                })
+                .catch(error => {
+                    console.error('Error during moveToNextLine:', error);
+                });
+        }
+
+        function setPlayOptions(playCountValue, playIntervalValue) {
+            fetch('/set_play_options', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: `play_count=${playCountValue}&play_interval=${playIntervalValue}`
             })
-            .catch(error => {
-                console.error('Error during moveToNextLine:', error);
-            });
-    }
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'options_set') {
+                        // 可选：显示成功消息或其他反馈
+                    } else if (data.status === 'error') {
+                        alert(`错误: ${data.message}`);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error during setPlayOptions:', error);
+                });
+        }
 
-    function setPlayOptions(playCountValue, playIntervalValue) {
-        fetch('/set_play_options', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: `play_count=${playCountValue}&play_interval=${playIntervalValue}`
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'options_set') {
-                    // 可选：显示成功消息或其他反馈
-                } else if (data.status === 'error') {
-                    alert(`Error: ${data.message}`);
-                }
-            })
-            .catch(error => {
-                console.error('Error during setPlayOptions:', error);
-            });
-    }
-
-    function previousLine() {
-        // 仅在顺序模式下启用
-        fetch('/get_play_mode')
-            .then(response => response.json())
-            .then(data => {
-                if (data.play_mode === 'sequential') {
-                    fetch('/previous', {method: 'POST'})
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.status === 'success') {
-                                // 停止当前播放
-                                isPlaying = false;
-                                audioPlayer.pause();
-                                audioPlayer.style.display = 'none';
-                                document.getElementById('playPauseBtn').textContent = '▶️';
-
-                                // 立即播放上一句
-                                isPlaying = true;
-                                document.getElementById('playPauseBtn').textContent = '⏸';
-                                playNext();
-                            } else {
-                                alert('it\'s first');
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error during previousLine:', error);
-                        });
-                }
-            })
-            .catch(error => {
-                console.error('Error fetching play mode:', error);
-            });
-    }
-
-    function nextLine() {
-        // 仅在顺序模式下启用
-        fetch('/get_play_mode')
-            .then(response => response.json())
-            .then(data => {
-                if (data.play_mode === 'sequential') {
-                    fetch('/next', {method: 'POST'})
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.status === 'success') {
-                                // 停止当前播放
-                                isPlaying = false;
-                                audioPlayer.pause();
-                                audioPlayer.style.display = 'none';
-                                document.getElementById('playPauseBtn').textContent = '▶️';
-
-                                // 立即播放下一句
-                                isPlaying = true;
-                                document.getElementById('playPauseBtn').textContent = '⏸';
-                                playNext();
-                            } else {
-                                alert('no more');
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error during nextLine:', error);
-                        });
-                }
-            })
-            .catch(error => {
-                console.error('Error fetching play mode:', error);
-            });
-    }
-
-    function togglePlayMode() {
-        disableButton(toggleModeBtn, 500); // Disable for 0.5s
-
-        fetch('/toggle_play_mode', {method: 'POST'})
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'mode_toggled') {
+        function previousLine() {
+            // 仅在顺序模式下启用
+            fetch('/get_play_mode')
+                .then(response => response.json())
+                .then(data => {
                     if (data.play_mode === 'sequential') {
-                        toggleModeBtn.textContent = '顺序';
-                        enableNavigationButtons();
-                    } else if (data.play_mode === 'random') {
-                        toggleModeBtn.textContent = '随机';
-                        disableNavigationButtons();
+                        fetch('/previous', {method: 'POST'})
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.status === 'success') {
+                                    // 停止当前播放
+                                    isPlaying = false;
+                                    audioPlayer.pause();
+                                    audioPlayer.style.display = 'none';
+                                    document.getElementById('playPauseBtn').textContent = '▶️';
+
+                                    // 立即播放上一句
+                                    isPlaying = true;
+                                    document.getElementById('playPauseBtn').textContent = '⏸';
+                                    playNext();
+                                } else {
+                                    alert('已经是第一行了。');
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error during previousLine:', error);
+                            });
                     }
-                }
-            })
-            .catch(error => {
-                console.error('Error during togglePlayMode:', error);
-            });
-    }
+                })
+                .catch(error => {
+                    console.error('Error fetching play mode:', error);
+                });
+        }
 
-    function enableNavigationButtons() {
-        previousBtn.disabled = false;
-        nextBtn.disabled = false;
-    }
+        function nextLine() {
+            // 仅在顺序模式下启用
+            fetch('/get_play_mode')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.play_mode === 'sequential') {
+                        fetch('/next', {method: 'POST'})
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.status === 'success') {
+                                    // 停止当前播放
+                                    isPlaying = false;
+                                    audioPlayer.pause();
+                                    audioPlayer.style.display = 'none';
+                                    document.getElementById('playPauseBtn').textContent = '▶️';
 
-    function disableNavigationButtons() {
-        previousBtn.disabled = true;
-        nextBtn.disabled = true;
-    }
+                                    // 立即播放下一句
+                                    isPlaying = true;
+                                    document.getElementById('playPauseBtn').textContent = '⏸';
+                                    playNext();
+                                } else {
+                                    alert('没有更多文本了。');
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error during nextLine:', error);
+                            });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching play mode:', error);
+                });
+        }
 
-    function changePlayCount() {
-        // 循环 playCount 从1到3，再回到1
-        playCount = playCount < 3 ? playCount + 1 : 1;
-        playCountBtn.textContent = playCount;
-        setPlayOptions(playCount, playInterval / 1000); // 立即设置
-    }
+        function togglePlayMode() {
+            disableButton(toggleModeBtn, 200); // Disable for 0.5s
 
-    function changePlayInterval() {
-        // 循环 playInterval 从1到3，再回到1
-        playInterval = playInterval < 3000 ? playInterval + 1000 : 1000;
-        playIntervalBtn.textContent = playInterval / 1000;
-        setPlayOptions(playCount, playInterval / 1000); // 立即设置
-    }
+            fetch('/toggle_play_mode', {method: 'POST'})
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'mode_toggled') {
+                        if (data.play_mode === 'sequential') {
+                            toggleModeBtn.textContent = '顺序';
+                            enableNavigationButtons();
+                        } else if (data.play_mode === 'random') {
+                            toggleModeBtn.textContent = '随机';
+                            disableNavigationButtons();
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error during togglePlayMode:', error);
+                });
+        }
 
-    function disableButton(button, duration) {
-        button.disabled = true;
-        setTimeout(() => {
-            button.disabled = false;
-        }, duration);
-    }
+        function enableNavigationButtons() {
+            previousBtn.disabled = false;
+            nextBtn.disabled = false;
+        }
 
-    window.addEventListener('beforeunload', function () {
-        fetch('/stop', {method: 'POST'});
-    });
-</script>
+        function disableNavigationButtons() {
+            previousBtn.disabled = true;
+            nextBtn.disabled = true;
+        }
+
+        function changePlayCount() {
+            // 循环 playCount 从1到3，再回到1
+            playCount = playCount < 3 ? playCount + 1 : 1;
+            playCountBtn.textContent = playCount;
+            setPlayOptions(playCount, playInterval / 1000); // 立即设置
+        }
+
+        function changePlayInterval() {
+            // 循环 playInterval 从1到3，再回到1
+            playInterval = playInterval < 3000 ? playInterval + 1000 : 1000;
+            playIntervalBtn.textContent = playInterval / 1000;
+            setPlayOptions(playCount, playInterval / 1000); // 立即设置
+        }
+
+        function disableButton(button, duration) {
+            button.disabled = true;
+            setTimeout(() => {
+                button.disabled = false;
+            }, duration);
+        }
+
+        window.addEventListener('beforeunload', function () {
+            fetch('/stop', {method: 'POST'});
+        });
+    </script>
 </body>
 </html>
