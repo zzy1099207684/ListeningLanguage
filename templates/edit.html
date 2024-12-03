@@ -39,6 +39,13 @@
             text-align: right;
         }
 
+        .search-box form {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 10px;
+        }
+
         .search-box input[type="text"] {
             width: 100%;
             max-width: 300px;
@@ -46,6 +53,21 @@
             border: 1px solid #ccc;
             border-radius: 4px;
             font-size: 16px;
+        }
+
+        .search-box button {
+            padding: 8px 16px;
+            background-color: #4A90E2;
+            border: none;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+
+        .search-box button:hover {
+            background-color: #357ABD;
         }
 
         table {
@@ -204,6 +226,24 @@
             pointer-events: none;
         }
 
+        /* 页码输入框样式 */
+        .pagination form {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .pagination form input[type="number"] {
+            width: 60px;
+            padding: 5px;
+            font-size: 14px;
+        }
+
+        .pagination form button {
+            padding: 5px 10px;
+            font-size: 14px;
+        }
+
         /* Modal 样式 */
         .modal {
             display: none;
@@ -265,7 +305,16 @@
 
         /* 搜索框响应式调整 */
         @media (max-width: 600px) {
+            .search-box form {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
             .search-box input[type="text"] {
+                max-width: 100%;
+            }
+
+            .search-box button {
                 width: 100%;
             }
 
@@ -327,9 +376,12 @@
 <body>
     <div class="container">
         <h1>Edit Text File</h1>
-        <!-- 实时搜索框 -->
+        <!-- 修改后的搜索框 -->
         <div class="search-box">
-            <input type="text" id="searchInput" placeholder="搜索文本...">
+            <form method="GET" action="{{ url_for('edit_file.edit') }}">
+                <input type="text" id="searchInput" name="search" placeholder="搜索文本..." value="{{ search_query }}">
+                <button type="submit">搜索</button>
+            </form>
         </div>
 
         <table id="textTable">
@@ -378,8 +430,8 @@
         <!-- 分页控件 -->
         <div class="pagination">
             {% if current_page > 1 %}
-                <a href="{{ url_for('edit_file.edit', page=1) }}">&laquo; 第一页</a>
-                <a href="{{ url_for('edit_file.edit', page=current_page - 1) }}">&lt; 上一页</a>
+                <a href="{{ url_for('edit_file.edit', page=1, search=search_query) }}">&laquo; 第一页</a>
+                <a href="{{ url_for('edit_file.edit', page=current_page - 1, search=search_query) }}">&lt; 上一页</a>
             {% else %}
                 <span class="disabled">&laquo; 第一页</span>
                 <span class="disabled">&lt; 上一页</span>
@@ -390,7 +442,7 @@
                     {% if page == current_page %}
                         <span class="active">{{ page }}</span>
                     {% else %}
-                        <a href="{{ url_for('edit_file.edit', page=page) }}">{{ page }}</a>
+                        <a href="{{ url_for('edit_file.edit', page=page, search=search_query) }}">{{ page }}</a>
                     {% endif %}
                 {% endfor %}
             {% else %}
@@ -398,24 +450,24 @@
                     {% if page == current_page %}
                         <span class="active">{{ page }}</span>
                     {% else %}
-                        <a href="{{ url_for('edit_file.edit', page=page) }}">{{ page }}</a>
+                        <a href="{{ url_for('edit_file.edit', page=page, search=search_query) }}">{{ page }}</a>
                     {% endif %}
                 {% endfor %}
                 {% if current_page > 3 and current_page < total_pages - 1 %}
                     <span>...</span>
                 {% elif current_page == 3 %}
-                    <a href="{{ url_for('edit_file.edit', page=3) }}">3</a>
+                    <a href="{{ url_for('edit_file.edit', page=3, search=search_query) }}">3</a>
                 {% elif current_page == total_pages - 1 %}
-                    <a href="{{ url_for('edit_file.edit', page=total_pages - 1) }}">{{ total_pages - 1 }}</a>
+                    <a href="{{ url_for('edit_file.edit', page=total_pages - 1, search=search_query) }}">{{ total_pages - 1 }}</a>
                 {% endif %}
                 {% if current_page != total_pages and total_pages > 2 %}
-                    <a href="{{ url_for('edit_file.edit', page=total_pages) }}">{{ total_pages }}</a>
+                    <a href="{{ url_for('edit_file.edit', page=total_pages, search=search_query) }}">{{ total_pages }}</a>
                 {% endif %}
             {% endif %}
 
             {% if current_page < total_pages %}
-                <a href="{{ url_for('edit_file.edit', page=current_page + 1) }}">下一页 &gt;</a>
-                <a href="{{ url_for('edit_file.edit', page=total_pages) }}">最后一页 &raquo;</a>
+                <a href="{{ url_for('edit_file.edit', page=current_page + 1, search=search_query) }}">下一页 &gt;</a>
+                <a href="{{ url_for('edit_file.edit', page=total_pages, search=search_query) }}">最后一页 &raquo;</a>
             {% else %}
                 <span class="disabled">下一页 &gt;</span>
                 <span class="disabled">最后一页 &raquo;</span>
@@ -424,11 +476,14 @@
             <!-- 页码输入框和确定按钮 -->
             <form method="GET" action="{{ url_for('edit_file.edit') }}">
                 <input type="number" name="page" min="1" max="{{ total_pages }}" placeholder="页码" required>
+                {% if search_query %}
+                    <input type="hidden" name="search" value="{{ search_query }}">
+                {% endif %}
                 <button type="submit" class="control-btn">确定</button>
             </form>
         </div>
 
-        <form method="POST" action="{{ url_for('edit_file.edit', page=current_page) }}">
+        <form method="POST" action="{{ url_for('edit_file.edit', page=current_page, search=search_query) }}">
             <div class="form-group">
                 <label for="new_line">文本内容（支持多行，每行一条数据）：</label>
                 <textarea id="new_line" name="new_line" rows="5" required></textarea>
@@ -470,8 +525,6 @@
         const directDeleteCheckbox = document.getElementById('directDeleteCheckbox');
         const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
         const selectAllCheckbox = document.getElementById('selectAllCheckbox');
-        const searchInput = document.getElementById('searchInput');
-        const tableRows = document.querySelectorAll('#textTable tr:not(:first-child)'); // Exclude header
 
         // 为每个删除按钮添加点击事件监听器
         deleteButtons.forEach(button => {
@@ -482,7 +535,7 @@
                     // 创建一个临时表单并提交
                     const tempForm = document.createElement('form');
                     tempForm.method = 'POST';
-                    tempForm.action = "{{ url_for('edit_file.edit', page=current_page) }}";
+                    tempForm.action = "{{ url_for('edit_file.edit', page=current_page, search=search_query) }}";
 
                     const actionInput = document.createElement('input');
                     actionInput.type = 'hidden';
@@ -549,7 +602,7 @@
                 // 创建一个临时表单并提交
                 const tempForm = document.createElement('form');
                 tempForm.method = 'POST';
-                tempForm.action = "{{ url_for('edit_file.edit', page=current_page) }}";
+                tempForm.action = "{{ url_for('edit_file.edit', page=current_page, search=search_query) }}";
 
                 const actionInput = document.createElement('input');
                 actionInput.type = 'hidden';
@@ -583,19 +636,6 @@
             const checkboxes = document.querySelectorAll('.select-checkbox');
             checkboxes.forEach(cb => {
                 cb.checked = selectAllCheckbox.checked;
-            });
-        });
-
-        // 实时搜索与过滤功能
-        searchInput.addEventListener('input', () => {
-            const filter = searchInput.value.toLowerCase();
-            tableRows.forEach(row => {
-                const text = row.querySelector('.line-text').textContent.toLowerCase();
-                if (text.includes(filter)) {
-                    row.style.display = '';
-                } else {
-                    row.style.display = 'none';
-                }
             });
         });
     </script>

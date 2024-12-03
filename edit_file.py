@@ -55,6 +55,8 @@ def delete_translation(text):
 def edit():
     lines = read_text_file(TEXT_FILE_PATH)
     current_page = request.args.get('page', '1')
+    search_query = request.args.get('search', '').strip()
+
     try:
         current_page = int(current_page)
         if current_page < 1:
@@ -62,13 +64,19 @@ def edit():
     except ValueError:
         current_page = 1
 
+    if search_query:
+        # Filter lines based on search query (case-insensitive)
+        filtered_lines = [line for line in lines if search_query.lower() in line.lower()]
+    else:
+        filtered_lines = lines
+
     per_page = 4
-    total_pages = math.ceil(len(lines) / per_page) if per_page else 1
-    if current_page > total_pages:
+    total_pages = math.ceil(len(filtered_lines) / per_page) if per_page else 1
+    if current_page > total_pages and total_pages != 0:
         current_page = total_pages
     start = (current_page - 1) * per_page
     end = start + per_page
-    paginated_lines = lines[start:end]
+    paginated_lines = filtered_lines[start:end]
 
     if request.method == 'POST':
         action = request.form.get('action')
@@ -135,9 +143,10 @@ def edit():
                     flash('行号或更新内容无效。', 'error')
             except (ValueError, TypeError):
                 flash('行号无效。', 'error')
-        return redirect(url_for('edit_file.edit', page=current_page))
+        return redirect(url_for('edit_file.edit', page=current_page, search=search_query))
 
     return render_template('edit.html',
                            lines=paginated_lines,
                            current_page=current_page,
-                           total_pages=total_pages)
+                           total_pages=total_pages,
+                           search_query=search_query)

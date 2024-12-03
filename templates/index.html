@@ -574,37 +574,41 @@
         }, duration);
     }
 
-    function scanTranslationAndAudio() {
+    async function scanTranslationAndAudio() {
         const scanTranslationAndAudio = document.getElementById('scanTranslationAndAudio');
-        disableButton(scanTranslationAndAudio, 200); // 禁用5秒防止重复点击
-        fetch('/scan_audio', {method: 'POST'})
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        alert(`扫描完成。新增音频数量: ${data.new_audio_count}`);
-                    } else {
-                        alert(`扫描失败: ${data.message}`);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error during scanAudio:', error);
-                    alert('扫描音频时出错。');
-                });
-        fetch('/scan_translation', {method: 'POST'})
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        alert(`扫描完成。新增翻译数量: ${data.new_translation_count}`);
-                    } else {
-                        alert(`扫描失败: ${data.message}`);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error during scanTranslation:', error);
-                    alert('扫描翻译时出错。');
-                });
+        disableButton(scanTranslationAndAudio, 200); // 禁用按钮以防重复点击
 
+        let msgs = "";
+
+        try {
+            const audioResponse = await fetch('/scan_audio', {method: 'POST'});
+            const audioData = await audioResponse.json();
+            if (audioData.status === 'success') {
+                msgs += `扫描完成。新增音频数量: ${audioData.new_audio_count}`;
+            } else {
+                msgs += `扫描失败: ${audioData.message}`;
+            }
+        } catch (error) {
+            console.error('Error during scanAudio:', error);
+            msgs += '扫描音频时出错。';
+        }
+
+        try {
+            const translationResponse = await fetch('/scan_translation', {method: 'POST'});
+            const translationData = await translationResponse.json();
+            if (translationData.status === 'success') {
+                msgs += `; 扫描完成。新增翻译数量: ${translationData.new_translation_count}`;
+            } else {
+                msgs += `; 扫描失败: ${translationData.message}`;
+            }
+        } catch (error) {
+            console.error('Error during scanTranslation:', error);
+            msgs += '; 扫描翻译时出错。';
+        }
+
+        alert(msgs);
     }
+
 
     window.addEventListener('beforeunload', function () {
         fetch('/stop', {method: 'POST'});
