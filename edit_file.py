@@ -4,11 +4,15 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash
 import math
 import os
 import hashlib
+import json
+import threading
 
 edit_file_blueprint = Blueprint('edit_file', __name__, template_folder='templates')
 
 TEXT_FILE_PATH = 'store.txt'
 AUDIO_PERSISTENT_DIR = 'audio_files'
+TRANSLATIONS_FILE_PATH = 'translations.json'
+translations_lock = threading.Lock()
 
 def read_text_file(file_path):
     if not os.path.exists(file_path):
@@ -28,6 +32,24 @@ def delete_audio_file(text):
     file_path = os.path.join(AUDIO_PERSISTENT_DIR, filename)
     if os.path.exists(file_path):
         os.remove(file_path)
+
+def load_translations():
+    if os.path.exists(TRANSLATIONS_FILE_PATH):
+        with open(TRANSLATIONS_FILE_PATH, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    else:
+        return {}
+
+def save_translations(translations):
+    with open(TRANSLATIONS_FILE_PATH, 'w', encoding='utf-8') as f:
+        json.dump(translations, f, ensure_ascii=False, indent=4)
+
+def delete_translation(text):
+    with translations_lock:
+        translations = load_translations()
+        if text in translations:
+            del translations[text]
+            save_translations(translations)
 
 @edit_file_blueprint.route('/edit', methods=['GET', 'POST'])
 def edit():
@@ -52,9 +74,13 @@ def edit():
         action = request.form.get('action')
         if action == 'add':
             new_lines = request.form.get('new_line', '').split('\n')
-            lines.extend([line.strip() for line in new_lines if line.strip()])
-            write_text_file(TEXT_FILE_PATH, lines)
-            flash('新行已添加。', 'success')
+            new_lines = [line.strip() for line in new_lines if line.strip()]
+            if new_lines:
+                lines.extend(new_lines)
+                write_text_file(TEXT_FILE_PATH, lines)
+                flash('新行已添加。', 'success')
+            else:
+                flash('没有添加任何新行。', 'error')
         elif action == 'delete':
             line_number = request.form.get('line_number')
             try:
@@ -66,6 +92,8 @@ def edit():
                     write_text_file(TEXT_FILE_PATH, lines)
                     # 删除对应的音频文件
                     delete_audio_file(text)
+                    # 删除对应的翻译
+                    delete_translation(text)
                     flash(f'第 {line_number} 行已删除。', 'success')
                 else:
                     flash('行号无效。', 'error')
@@ -82,9 +110,10 @@ def edit():
                         texts_to_delete.append(text)
                         del lines[line_number - 1]
                 write_text_file(TEXT_FILE_PATH, lines)
-                # 删除对应的音频文件
+                # 删除对应的音频文件和翻译
                 for text in texts_to_delete:
                     delete_audio_file(text)
+                    delete_translation(text)
                 flash(f'{len(texts_to_delete)} 行已删除。', 'success')
             except (ValueError, TypeError):
                 flash('选择的行号无效。', 'error')
@@ -98,8 +127,9 @@ def edit():
                     old_text = lines[line_number - 1]
                     lines[line_number - 1] = updated_text
                     write_text_file(TEXT_FILE_PATH, lines)
-                    # 删除旧的音频文件
+                    # 删除旧的音频文件和翻译
                     delete_audio_file(old_text)
+                    delete_translation(old_text)
                     flash(f'第 {line_number} 行已更新。', 'success')
                 else:
                     flash('行号或更新内容无效。', 'error')
