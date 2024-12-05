@@ -286,7 +286,7 @@ def scan_audio():
         return jsonify({'status': 'success', 'new_audio_count': new_audio_count})
     except Exception as e:
         print(f"Error during scan_audio: {e}")
-        return jsonify({'status': 'error', 'message': '扫描音频时出错。'}), 500
+        return jsonify({'status': 'error', 'message': 'error。'}), 500
 
 # 新增扫描翻译路由
 @app.route('/scan_translation', methods=['POST'])
@@ -310,7 +310,7 @@ def scan_translation():
         return jsonify({'status': 'success', 'new_translation_count': new_translation_count})
     except Exception as e:
         print(f"Error during scan_translation: {e}")
-        return jsonify({'status': 'error', 'message': '扫描翻译时出错。'}), 500
+        return jsonify({'status': 'error', 'message': 'error。'}), 500
 
 # 新增翻译路由，使用 deep_translator 并缓存翻译结果
 @app.route('/translate', methods=['POST'])
@@ -335,4 +335,4 @@ def translate():
         return jsonify({'status': 'error', 'message': 'Translation failed.'}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=80, debug=True)
+    app.run(host='0.0.0.0', port=80)

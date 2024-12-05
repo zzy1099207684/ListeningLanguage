@@ -202,12 +202,55 @@
         .scan-options .scan-btn:hover:not(:disabled) {
             background-color: #e59400;
         }
+
+        /* 新增蒙版和进度条样式 */
+        #overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(128, 128, 128, 0.5); /* 灰色蒙版 */
+            z-index: 1000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #overlay-content {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        #overlay-progress-bar {
+            width: 300px;
+            background-color: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            height: 20px;
+            margin: 20px 0;
+        }
+
+        #overlay-progress-fill {
+            height: 100%;
+            width: 0%;
+            background-color: #4A90E2;
+            transition: width 0.3s;
+        }
+
+        #overlay-progress-text {
+            font-size: 16px;
+            color: #555;
+        }
     </style>
 </head>
 <body>
 <div id="text-container">
     <p id="current-text">Text will appear here...</p>
-    <p id="translated-text">翻译将在这里显示...</p>
+    <p id="translated-text">translate will appear here</p>
 </div>
 <div class="controls">
     <button class="control-btn" id="previousBtn" onclick="previousLine()">⏮</button>
@@ -228,11 +271,11 @@
 <div class="display-options">
     <label>
         <input type="checkbox" id="toggleEnglish" checked>
-        显示英文
+        show english
     </label>
     <label>
         <input type="checkbox" id="toggleTranslation" checked>
-        显示翻译
+        show translate
     </label>
 </div>
 
@@ -246,13 +289,24 @@
     <button class="control-btn" onclick="window.location.href='/file/edit'">Edit File</button>
 </div>
 <div class="controls">
-    <button class="control-btn" id="toggleModeBtn" onclick="togglePlayMode()">顺序</button>
+    <button class="control-btn" id="toggleModeBtn" onclick="togglePlayMode()">sequential</button>
 </div>
 
 <!-- 新增扫描选项 -->
 <div class="scan-options">
-    <button class="scan-btn" id="scanTranslationAndAudio" onclick="scanTranslationAndAudio()">扫描音频与翻译</button>
+    <button class="scan-btn" id="scanTranslationAndAudio" onclick="scanTranslationAndAudio()">scan new resource</button>
     <!--?        <button class="scan-btn" id="scanTranslationBtn" onclick="scanTranslation()">扫描翻译</button>-->
+</div>
+
+<!-- 新增蒙版和进度条 -->
+<div id="overlay">
+    <div id="overlay-content">
+        <h3>扫描中...</h3>
+        <div id="overlay-progress-bar">
+            <div id="overlay-progress-fill"></div>
+        </div>
+        <div id="overlay-progress-text">扫描进度: 0%</div>
+    </div>
 </div>
 
 <!-- 音频播放器 -->
@@ -276,15 +330,20 @@
     let toggleEnglish = document.getElementById('toggleEnglish');
     let toggleTranslation = document.getElementById('toggleTranslation');
 
+    // 新增蒙版和进度条元素
+    let overlay = document.getElementById('overlay');
+    let overlayProgressFill = document.getElementById('overlay-progress-fill');
+    let overlayProgressText = document.getElementById('overlay-progress-text');
+
     // 初始化播放模式按钮和按钮状态
     fetch('/get_play_mode')
             .then(response => response.json())
             .then(data => {
                 if (data.play_mode === 'sequential') {
-                    toggleModeBtn.textContent = '顺序';
+                    toggleModeBtn.textContent = 'sequential';
                     enableNavigationButtons();
                 } else if (data.play_mode === 'random') {
-                    toggleModeBtn.textContent = '随机';
+                    toggleModeBtn.textContent = 'random';
                     disableNavigationButtons();
                 }
             })
@@ -346,12 +405,12 @@
                     if (data.status === 'success') {
                         translatedText.innerText = `${data.translated_text}`;
                     } else {
-                        translatedText.innerText = '翻译失败。';
+                        translatedText.innerText = 'translate error。';
                     }
                 })
                 .catch(error => {
                     console.error('Error during translation:', error);
-                    translatedText.innerText = '翻译错误。';
+                    translatedText.innerText = 'translate error。';
                 });
     }
 
@@ -406,7 +465,7 @@
 
                         playLoop();
                     } else if (data.status === 'no_more_text') {
-                        alert('没有更多文本了。');
+                        alert('no much more。');
                         isPlaying = false;
                         document.getElementById('playPauseBtn').textContent = '▶️';
                     }
@@ -425,7 +484,7 @@
                             playNext();
                         }
                     } else if (data.status === 'no_more_text') {
-                        alert('没有更多文本了。');
+                        alert('no much more。');
                         isPlaying = false;
                         document.getElementById('playPauseBtn').textContent = '▶️';
                     }
@@ -446,7 +505,7 @@
                     if (data.status === 'options_set') {
                         // 可选：显示成功消息或其他反馈
                     } else if (data.status === 'error') {
-                        alert(`错误: ${data.message}`);
+                        alert(`error: ${data.message}`);
                     }
                 })
                 .catch(error => {
@@ -475,7 +534,7 @@
                                         document.getElementById('playPauseBtn').textContent = '⏸';
                                         playNext();
                                     } else {
-                                        alert('已经是第一行了。');
+                                        alert('have first。');
                                     }
                                 })
                                 .catch(error => {
@@ -509,7 +568,7 @@
                                         document.getElementById('playPauseBtn').textContent = '⏸';
                                         playNext();
                                     } else {
-                                        alert('没有更多文本了。');
+                                        alert('no much more。');
                                     }
                                 })
                                 .catch(error => {
@@ -530,10 +589,10 @@
                 .then(data => {
                     if (data.status === 'mode_toggled') {
                         if (data.play_mode === 'sequential') {
-                            toggleModeBtn.textContent = '顺序';
+                            toggleModeBtn.textContent = 'sequentially';
                             enableNavigationButtons();
                         } else if (data.play_mode === 'random') {
-                            toggleModeBtn.textContent = '随机';
+                            toggleModeBtn.textContent = 'random';
                             disableNavigationButtons();
                         }
                     }
@@ -578,35 +637,57 @@
         const scanTranslationAndAudio = document.getElementById('scanTranslationAndAudio');
         disableButton(scanTranslationAndAudio, 200); // 禁用按钮以防重复点击
 
+        // 显示蒙版和进度条
+        overlay.style.display = 'flex';
+        overlayProgressFill.style.width = '0%';
+        overlayProgressText.innerText = 'scanning: 0%';
+
         let msgs = "";
+        let progress = 0;
 
         try {
             const audioResponse = await fetch('/scan_audio', {method: 'POST'});
             const audioData = await audioResponse.json();
             if (audioData.status === 'success') {
-                msgs += `扫描完成。新增音频数量: ${audioData.new_audio_count}`;
+                msgs += `complete。new video: ${audioData.new_audio_count}`;
+                progress = 50;
+                overlayProgressFill.style.width = `${progress}%`;
+                overlayProgressText.innerText = `scanning: ${progress}%`;
             } else {
-                msgs += `扫描失败: ${audioData.message}`;
+                msgs += `scan error: ${audioData.message}`;
+                overlay.style.display = 'none';
             }
         } catch (error) {
             console.error('Error during scanAudio:', error);
-            msgs += '扫描音频时出错。';
+            msgs += 'scan error。';
+            overlay.style.display = 'none';
         }
 
         try {
             const translationResponse = await fetch('/scan_translation', {method: 'POST'});
             const translationData = await translationResponse.json();
             if (translationData.status === 'success') {
-                msgs += `; 扫描完成。新增翻译数量: ${translationData.new_translation_count}`;
+                msgs += `; complete。new translate: ${translationData.new_translation_count}`;
+                progress = 100;
+                overlayProgressFill.style.width = `${progress}%`;
+                overlayProgressText.innerText = `scanning: ${progress}%`;
             } else {
-                msgs += `; 扫描失败: ${translationData.message}`;
+                msgs += `; scan error: ${translationData.message}`;
+                overlay.style.display = 'none';
             }
         } catch (error) {
             console.error('Error during scanTranslation:', error);
-            msgs += '; 扫描翻译时出错。';
+            msgs += '; scan error。';
+            overlay.style.display = 'none';
         }
 
         alert(msgs);
+        // 隐藏蒙版 after a short delay
+        setTimeout(() => {
+            overlay.style.display = 'none';
+            overlayProgressFill.style.width = '0%';
+            overlayProgressText.innerText = 'scanning: 0%';
+        }, 1000);
     }
 
 

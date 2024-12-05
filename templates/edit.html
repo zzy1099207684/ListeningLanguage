@@ -380,7 +380,7 @@
         <div class="search-box">
             <form method="GET" action="{{ url_for('edit_file.edit') }}">
                 <input type="text" id="searchInput" name="search" placeholder="搜索文本..." value="{{ search_query }}">
-                <button type="submit">搜索</button>
+                <button type="submit">search</button>
             </form>
         </div>
 
@@ -389,14 +389,14 @@
                 <th>
                     <input type="checkbox" id="selectAllCheckbox" title="全选/全不选">
                 </th>
-                <th>行号</th>
-                <th>文本</th>
+                <th>line number</th>
+                <th>text</th>
                 <th>
                     操作
                     <!-- 直接删除[√] 复选框放在“操作”列的表头右侧 -->
                     <div class="direct-delete-container">
                         <input type="checkbox" id="directDeleteCheckbox">
-                        <label for="directDeleteCheckbox">直接删除[√]</label>
+                        <label for="directDeleteCheckbox">directly delete</label>
                     </div>
                 </th>
             </tr>
@@ -424,17 +424,17 @@
 
         <!-- 批量删除按钮 -->
         <div class="buttons">
-            <button type="button" class="control-btn batch-delete-btn" id="deleteSelectedBtn">删除选中</button>
+            <button type="button" class="control-btn batch-delete-btn" id="deleteSelectedBtn">delete choose</button>
         </div>
 
         <!-- 分页控件 -->
         <div class="pagination">
             {% if current_page > 1 %}
-                <a href="{{ url_for('edit_file.edit', page=1, search=search_query) }}">&laquo; 第一页</a>
-                <a href="{{ url_for('edit_file.edit', page=current_page - 1, search=search_query) }}">&lt; 上一页</a>
+                <a href="{{ url_for('edit_file.edit', page=1, search=search_query) }}">&laquo; first</a>
+                <a href="{{ url_for('edit_file.edit', page=current_page - 1, search=search_query) }}">&lt; last</a>
             {% else %}
-                <span class="disabled">&laquo; 第一页</span>
-                <span class="disabled">&lt; 上一页</span>
+                <span class="disabled">&laquo; first</span>
+                <span class="disabled">&lt; last</span>
             {% endif %}
 
             {% if total_pages <= 4 %}
@@ -466,16 +466,16 @@
             {% endif %}
 
             {% if current_page < total_pages %}
-                <a href="{{ url_for('edit_file.edit', page=current_page + 1, search=search_query) }}">下一页 &gt;</a>
-                <a href="{{ url_for('edit_file.edit', page=total_pages, search=search_query) }}">最后一页 &raquo;</a>
+                <a href="{{ url_for('edit_file.edit', page=current_page + 1, search=search_query) }}">next&gt;</a>
+                <a href="{{ url_for('edit_file.edit', page=total_pages, search=search_query) }}">final&raquo;</a>
             {% else %}
-                <span class="disabled">下一页 &gt;</span>
-                <span class="disabled">最后一页 &raquo;</span>
+                <span class="disabled">next&gt;</span>
+                <span class="disabled">final&raquo;</span>
             {% endif %}
 
             <!-- 页码输入框和确定按钮 -->
             <form method="GET" action="{{ url_for('edit_file.edit') }}">
-                <input type="number" name="page" min="1" max="{{ total_pages }}" placeholder="页码" required>
+                <input type="number" name="page" min="1" max="{{ total_pages }}" placeholder="page num" required>
                 {% if search_query %}
                     <input type="hidden" name="search" value="{{ search_query }}">
                 {% endif %}
@@ -485,15 +485,15 @@
 
         <form method="POST" action="{{ url_for('edit_file.edit', page=current_page, search=search_query) }}">
             <div class="form-group">
-                <label for="new_line">文本内容（支持多行，每行一条数据）：</label>
+                <label for="new_line">content（support multiply line, one line one data）：</label>
                 <textarea id="new_line" name="new_line" rows="5" required></textarea>
             </div>
             <input type="hidden" name="action" value="add">
-            <button type="submit" class="control-btn">添加</button>
+            <button type="submit" class="control-btn">add</button>
         </form>
 
         <div style="text-align: center; margin-top: 20px;">
-            <button class="control-btn" onclick="window.location.href='/language'">返回主页</button>
+            <button class="control-btn" onclick="window.location.href='/language'">back main page</button>
         </div>
     </div>
 
@@ -555,7 +555,7 @@
                     // 弹出模态框确认删除
                     modalAction.value = 'delete';
                     modalLineNumbers.innerHTML = `<input type="hidden" name="line_number" value="${lineNumber}">`;
-                    modalMessage.innerText = '您确定要删除这行吗？';
+                    modalMessage.innerText = 'did you want delete this row?';
                     openModal();
                 }
             });
@@ -572,7 +572,7 @@
             // 清空模态框内容
             modalLineNumbers.innerHTML = '';
             modalAction.value = '';
-            modalMessage.innerText = '您确定要删除吗？';
+            modalMessage.innerText = 'sure?';
         }
 
         // 当用户点击模态框外部时，关闭模态框
@@ -591,7 +591,7 @@
                 // 弹出模态框提示未选择
                 modalAction.value = '';
                 modalLineNumbers.innerHTML = '';
-                modalMessage.innerText = '请至少选择一行进行删除。';
+                modalMessage.innerText = 'at least 1';
                 openModal();
                 return;
             }
@@ -626,7 +626,7 @@
                 modalLineNumbers.innerHTML = selectedLines.map(lineNumber =>
                     `<input type="hidden" name="selected_lines" value="${lineNumber}">`
                 ).join('');
-                modalMessage.innerText = `您确定要删除选中的 ${selectedCount} 行吗？`;
+                modalMessage.innerText = `sure to delete ${selectedCount} ?`;
                 openModal();
             }
         });
