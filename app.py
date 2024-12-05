@@ -1,21 +1,18 @@
 # app.py
 
-import time
 from flask import Flask, render_template, request, jsonify, send_from_directory, session
 from flask_session import Session
 from gtts import gTTS
 import tempfile
 import atexit
-from edit_file import edit_file_blueprint  # 确保 edit_file.py 文件存在并定义了 edit_file_blueprint
+from edit_file import edit_file_blueprint
 
-import subprocess
-import sys
 import os
 import random
 import hashlib
 import json
-from deep_translator import GoogleTranslator  # 新增导入
-import threading  # 新增导入
+from deep_translator import GoogleTranslator
+import threading
 
 app = Flask(__name__)
 app.register_blueprint(edit_file_blueprint, url_prefix='/file')
@@ -24,7 +21,7 @@ app.register_blueprint(edit_file_blueprint, url_prefix='/file')
 app.config['SESSION_TYPE'] = 'filesystem'  # 使用文件系统存储会话数据
 app.config['SESSION_FILE_DIR'] = os.path.join(tempfile.gettempdir(), 'flask_sessions')  # 会话文件存储目录
 app.config['SESSION_PERMANENT'] = False
-app.config['SECRET_KEY'] = 'your_secret_key_here'  # 替换为您的密钥
+app.config['SECRET_KEY'] = 'safe_safe_safe'  # 替换为您的密钥
 
 # 初始化 Session
 Session(app)
