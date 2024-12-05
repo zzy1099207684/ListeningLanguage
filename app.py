@@ -272,13 +272,26 @@ def scan_audio():
         total_lines = len(lines)
         new_audio_count = 0
 
+        current_audio_filenames = set()
+
         for text in lines:
             filename, file_path = get_audio_file_path(text)
+            current_audio_filenames.add(filename)
             if not os.path.exists(file_path):
                 tts = gTTS(text=text, lang='en', tld='com')
                 tts.save(file_path)
                 temp_files.append(filename)
                 new_audio_count += 1
+
+        # 删除不在当前文本中的音频文件
+        existing_audio_files = set(os.listdir(AUDIO_PERSISTENT_DIR))
+        obsolete_audio_files = existing_audio_files - current_audio_filenames
+        for obsolete_file in obsolete_audio_files:
+            try:
+                os.remove(os.path.join(AUDIO_PERSISTENT_DIR, obsolete_file))
+                print(f"Deleted obsolete audio file: {obsolete_file}")
+            except Exception as e:
+                print(f"Error deleting obsolete audio file {obsolete_file}: {e}")
 
         return jsonify({'status': 'success', 'new_audio_count': new_audio_count})
     except Exception as e:
@@ -292,13 +305,21 @@ def scan_translation():
     try:
         lines = read_text_file(TEXT_FILE_PATH)
         new_translation_count = 0
+        current_texts = set(lines)
 
         with translations_lock:
+            # 添加新的翻译
             for text in lines:
                 if text not in translations:
                     translated_text = GoogleTranslator(source='en', target='zh-CN').translate(text)
                     translations[text] = translated_text
                     new_translation_count += 1
+
+            # 删除不在当前文本中的翻译
+            obsolete_texts = set(translations.keys()) - current_texts
+            for obsolete_text in obsolete_texts:
+                del translations[obsolete_text]
+                print(f"Deleted obsolete translation for text: {obsolete_text}")
 
             # 保存新的翻译到文件
             with open(TRANSLATIONS_FILE_PATH, 'w', encoding='utf-8') as f:

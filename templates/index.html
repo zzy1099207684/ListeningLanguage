@@ -589,7 +589,7 @@
                 .then(data => {
                     if (data.status === 'mode_toggled') {
                         if (data.play_mode === 'sequential') {
-                            toggleModeBtn.textContent = 'sequentially';
+                            toggleModeBtn.textContent = 'sequential';
                             enableNavigationButtons();
                         } else if (data.play_mode === 'random') {
                             toggleModeBtn.textContent = 'random';
@@ -640,7 +640,7 @@
         // 显示蒙版和进度条
         overlay.style.display = 'flex';
         overlayProgressFill.style.width = '0%';
-        overlayProgressText.innerText = 'scanning: 0%';
+        overlayProgressText.innerText = '扫描进度: 0%';
 
         let msgs = "";
         let progress = 0;
@@ -649,17 +649,17 @@
             const audioResponse = await fetch('/scan_audio', {method: 'POST'});
             const audioData = await audioResponse.json();
             if (audioData.status === 'success') {
-                msgs += `complete。new video: ${audioData.new_audio_count}`;
+                msgs += `音频扫描完成。新增音频文件: ${audioData.new_audio_count}`;
                 progress = 50;
                 overlayProgressFill.style.width = `${progress}%`;
-                overlayProgressText.innerText = `scanning: ${progress}%`;
+                overlayProgressText.innerText = `扫描进度: ${progress}%`;
             } else {
-                msgs += `scan error: ${audioData.message}`;
+                msgs += `音频扫描错误: ${audioData.message}`;
                 overlay.style.display = 'none';
             }
         } catch (error) {
             console.error('Error during scanAudio:', error);
-            msgs += 'scan error。';
+            msgs += '音频扫描错误。';
             overlay.style.display = 'none';
         }
 
@@ -667,17 +667,17 @@
             const translationResponse = await fetch('/scan_translation', {method: 'POST'});
             const translationData = await translationResponse.json();
             if (translationData.status === 'success') {
-                msgs += `; complete。new translate: ${translationData.new_translation_count}`;
+                msgs += `；翻译扫描完成。新增翻译条目: ${translationData.new_translation_count}`;
                 progress = 100;
                 overlayProgressFill.style.width = `${progress}%`;
-                overlayProgressText.innerText = `scanning: ${progress}%`;
+                overlayProgressText.innerText = `扫描进度: ${progress}%`;
             } else {
-                msgs += `; scan error: ${translationData.message}`;
+                msgs += `；翻译扫描错误: ${translationData.message}`;
                 overlay.style.display = 'none';
             }
         } catch (error) {
             console.error('Error during scanTranslation:', error);
-            msgs += '; scan error。';
+            msgs += '；翻译扫描错误。';
             overlay.style.display = 'none';
         }
 
@@ -686,7 +686,7 @@
         setTimeout(() => {
             overlay.style.display = 'none';
             overlayProgressFill.style.width = '0%';
-            overlayProgressText.innerText = 'scanning: 0%';
+            overlayProgressText.innerText = '扫描进度: 0%';
         }, 1000);
     }
 
