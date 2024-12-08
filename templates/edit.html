@@ -1,5 +1,3 @@
-<!-- templates/edit.html -->
-
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -391,6 +389,7 @@
                 </th>
                 <th>line number</th>
                 <th>text</th>
+                <th>translation</th>
                 <th>
                     操作
                     <!-- 直接删除[√] 复选框放在“操作”列的表头右侧 -->
@@ -400,13 +399,14 @@
                     </div>
                 </th>
             </tr>
-            {% for line in lines %}
+            {% for line, translation in lines %}
             <tr>
                 <td>
                     <input type="checkbox" class="select-checkbox" name="selected_lines" value="{{ loop.index + (current_page - 1) * 4 }}">
                 </td>
                 <td>{{ loop.index + (current_page - 1) * 4 }}</td>
                 <td class="line-text">{{ line }}</td>
+                <td class="translation-text">{{ translation }}</td>
                 <td>
                     <!-- 删除按钮 -->
                     <button type="button" class="control-btn delete-btn" data-line-number="{{ loop.index + (current_page - 1) * 4 }}">删除</button>
@@ -415,6 +415,7 @@
                         <input type="hidden" name="action" value="update">
                         <input type="hidden" name="line_number" value="{{ loop.index + (current_page - 1) * 4 }}">
                         <input type="text" name="updated_text" value="{{ line }}" required style="width: 150px; padding: 5px; margin-right: 5px;">
+                        <input type="text" name="updated_translation" value="{{ translation }}" required style="width: 200px; padding: 5px; margin-right: 5px;">
                         <button type="submit" class="control-btn">更新</button>
                     </form>
                 </td>

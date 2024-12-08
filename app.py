@@ -35,6 +35,7 @@ def read_text_file(file_path):
         return []
     with open(file_path, 'r', encoding='utf-8') as file:
         lines = file.readlines()
+    # **修改**：跳过空行
     return [line.strip() for line in lines if line.strip()]
 
 lines = read_text_file(TEXT_FILE_PATH)
@@ -56,11 +57,14 @@ TRANSLATIONS_FILE_PATH = 'translations.json'
 translations_lock = threading.Lock()
 
 # 加载已存在的翻译
-if os.path.exists(TRANSLATIONS_FILE_PATH):
-    with open(TRANSLATIONS_FILE_PATH, 'r', encoding='utf-8') as f:
-        translations = json.load(f)
-else:
-    translations = {}
+def load_translations():
+    if os.path.exists(TRANSLATIONS_FILE_PATH):
+        with open(TRANSLATIONS_FILE_PATH, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    else:
+        return {}
+
+translations = load_translations()
 
 # 注册文件删除函数
 def delete_temp_files():
@@ -298,7 +302,7 @@ def scan_audio():
         print(f"Error during scan_audio: {e}")
         return jsonify({'status': 'error', 'message': 'error。'}), 500
 
-# 新增扫描翻译路由
+# 修改后的扫描翻译路由
 @app.route('/scan_translation', methods=['POST'])
 def scan_translation():
     global translations
@@ -308,7 +312,10 @@ def scan_translation():
         current_texts = set(lines)
 
         with translations_lock:
-            # 添加新的翻译
+            # **新增**：重新加载翻译，确保使用最新的翻译，包括手动修改的翻译
+            translations = load_translations()
+
+            # 添加新的翻译，仅翻译尚未翻译的句子
             for text in lines:
                 if text not in translations:
                     translated_text = GoogleTranslator(source='en', target='zh-CN').translate(text)

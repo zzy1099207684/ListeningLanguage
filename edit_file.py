@@ -1,5 +1,3 @@
-# edit_file.py
-
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 import math
 import os
@@ -19,7 +17,8 @@ def read_text_file(file_path):
         return []
     with open(file_path, 'r', encoding='utf-8') as file:
         lines = file.readlines()
-    return [line.strip() for line in lines]
+    # **修改**：跳过空行
+    return [line.strip() for line in lines if line.strip()]
 
 def write_text_file(file_path, lines):
     with open(file_path, 'w', encoding='utf-8') as file:
@@ -54,6 +53,7 @@ def delete_translation(text):
 @edit_file_blueprint.route('/edit', methods=['GET', 'POST'])
 def edit():
     lines = read_text_file(TEXT_FILE_PATH)
+    translations = load_translations()
     current_page = request.args.get('page', '1')
     search_query = request.args.get('search', '').strip()
 
@@ -77,6 +77,12 @@ def edit():
     start = (current_page - 1) * per_page
     end = start + per_page
     paginated_lines = filtered_lines[start:end]
+
+    # Prepare lines with translations
+    lines_with_translations = []
+    for line in paginated_lines:
+        translation = translations.get(line, "")
+        lines_with_translations.append((line, translation))
 
     if request.method == 'POST':
         action = request.form.get('action')
@@ -128,6 +134,7 @@ def edit():
         elif action == 'update':
             line_number = request.form.get('line_number')
             updated_text = request.form.get('updated_text', '').strip()
+            updated_translation = request.form.get('updated_translation', '').strip()
             try:
                 line_number = int(line_number)
                 if 0 < line_number <= len(lines) and updated_text:
@@ -138,6 +145,11 @@ def edit():
                     # 删除旧的音频文件和翻译
                     delete_audio_file(old_text)
                     delete_translation(old_text)
+                    # Update translation
+                    with translations_lock:
+                        translations = load_translations()
+                        translations[updated_text] = updated_translation
+                        save_translations(translations)
                     flash(f'第 {line_number} 行已更新。', 'success')
                 else:
                     flash('行号或更新内容无效。', 'error')
@@ -146,7 +158,7 @@ def edit():
         return redirect(url_for('edit_file.edit', page=current_page, search=search_query))
 
     return render_template('edit.html',
-                           lines=paginated_lines,
+                           lines=lines_with_translations,
                            current_page=current_page,
                            total_pages=total_pages,
                            search_query=search_query)
