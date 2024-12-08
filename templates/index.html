@@ -1,5 +1,3 @@
-<!-- templates/index.html -->
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reading</title>
     <style>
+        /* Existing styles... */
+
         body {
             display: flex;
             flex-direction: column;
@@ -27,11 +27,16 @@
             margin-bottom: 20px;
         }
 
-        #text-container {
+        /* 修改后的 English 文本样式 */
+        #current-text {
             margin-bottom: 20px;
-            font-size: 18px;
+            font-size: 40px; /* 字号进一步增大 */
             color: #666;
             padding: 0 10px;
+            font-weight: 900; /* 字体加粗 */
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3); /* 添加文字阴影增强粗壮感 */
+            user-select: text; /* 允许文本选择 */
+            position: relative;
         }
 
         #translated-text {
@@ -135,8 +140,10 @@
                 font-size: 20px;
             }
 
-            #text-container {
-                font-size: 16px;
+            #current-text {
+                font-size: 24px; /* 响应式调整字号 */
+                font-weight: 900; /* 保持加粗 */
+                text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3); /* 调整阴影 */
             }
 
             #translated-text {
@@ -203,16 +210,66 @@
             background-color: #e59400;
         }
 
-        /* 新增蒙版和进度条样式 */
-        #overlay {
+        /* 新增颜色设定按钮样式 */
+        #colorSettingBtn {
+            background-color: #8A2BE2; /* 蓝紫色 */
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(138, 43, 226, 0.24), 0 1px 3px rgba(0, 0, 0, 0.08);
+            transition: background-color 0.3s, transform 0.3s, opacity 0.3s;
+            flex: 1 1 120px;
+            max-width: 200px;
+            margin-top: 10px;
+        }
+
+        #colorSettingBtn:hover:not(:disabled) {
+            background-color: #7A1FC2;
+            transform: translateY(-2px);
+            box-shadow: 0 7px 14px rgba(138, 43, 226, 0.24), 0 3px 6px rgba(0, 0, 0, 0.08);
+        }
+
+        #colorSettingBtn:disabled {
+            background-color: #a0c4e8;
+            cursor: not-allowed;
+            opacity: 0.6;
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* 高亮显示的单词样式 */
+        .highlight {
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .highlight.red {
+            color: #FF0000; /* 鲜红色 */
+        }
+
+        /* 移除其他颜色的样式
+        .highlight.yellow {
+            color: #FFD700; /* 金黄色 */
+        }
+
+        .highlight.green {
+            color: #32CD32; /* 酸橙绿色 */
+        }
+        */
+
+        /* 删除弹框和进度条相关的CSS */
+        /* #overlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
             background-color: rgba(128, 128, 128, 0.5); /* 灰色蒙版 */
-            z-index: 1000;
-            display: none;
+            z-index: 9999; /* 增加 z-index 确保覆盖所有元素 */
+            display: none; /* 初始隐藏 */
             justify-content: center;
             align-items: center;
         }
@@ -223,10 +280,12 @@
             border-radius: 10px;
             text-align: center;
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            max-width: 90%;
+            width: 400px; /* 固定宽度或根据需要调整 */
         }
 
         #overlay-progress-bar {
-            width: 300px;
+            width: 100%;
             background-color: #e0e0e0;
             border-radius: 10px;
             overflow: hidden;
@@ -244,99 +303,103 @@
         #overlay-progress-text {
             font-size: 16px;
             color: #555;
-        }
+        } */
     </style>
 </head>
 <body>
-<div id="text-container">
-    <p id="current-text">Text will appear here...</p>
-    <p id="translated-text">translate will appear here</p>
-</div>
-<div class="controls">
-    <button class="control-btn" id="previousBtn" onclick="previousLine()">⏮</button>
-    <button class="control-btn" id="playPauseBtn" onclick="togglePlayPause()">▶️</button>
-    <button class="control-btn" id="nextBtn" onclick="nextLine()">⏭</button>
-</div>
-<div class="play-options">
-    <div>
-        <button id="play-count-btn" onclick="changePlayCount()">1</button>
-        <span>Play Count</span>
+    <div id="text-container">
+        <p id="current-text">Text will appear here...</p>
+        <p id="translated-text">translate will appear here</p>
     </div>
-    <div>
-        <button id="play-interval-btn" onclick="changePlayInterval()">1</button>
-        <span>Play Interval (seconds)</span>
+    <div class="controls">
+        <button class="control-btn" id="previousBtn" onclick="previousLine()">⏮</button>
+        <button class="control-btn" id="playPauseBtn" onclick="togglePlayPause()">▶️</button>
+        <button class="control-btn" id="nextBtn" onclick="nextLine()">⏭</button>
     </div>
-</div>
-<!-- 新增显示选项 -->
-<div class="display-options">
-    <label>
-        <input type="checkbox" id="toggleEnglish" checked>
-        show english
-    </label>
-    <label>
-        <input type="checkbox" id="toggleTranslation" checked>
-        show translate
-    </label>
-</div>
-
-<!-- 移除“Set Play Options”按钮 -->
-<!--
-<div class="controls">
-    <button class="control-btn" onclick="setPlayOptions()">Set Play Options</button>
-</div>
--->
-<div class="controls">
-    <button class="control-btn" onclick="window.location.href='/file/edit'">Edit File</button>
-</div>
-<div class="controls">
-    <button class="control-btn" id="toggleModeBtn" onclick="togglePlayMode()">sequential</button>
-</div>
-
-<!-- 新增扫描选项 -->
-<div class="scan-options">
-    <button class="scan-btn" id="scanTranslationAndAudio" onclick="scanTranslationAndAudio()">scan new resource</button>
-    <!--?        <button class="scan-btn" id="scanTranslationBtn" onclick="scanTranslation()">扫描翻译</button>-->
-</div>
-
-<!-- 新增蒙版和进度条 -->
-<div id="overlay">
-    <div id="overlay-content">
-        <h3>扫描中...</h3>
-        <div id="overlay-progress-bar">
-            <div id="overlay-progress-fill"></div>
+    <div class="play-options">
+        <div>
+            <button id="play-count-btn" onclick="changePlayCount()">1</button>
+            <span>Play Count</span>
         </div>
-        <div id="overlay-progress-text">扫描进度: 0%</div>
+        <div>
+            <button id="play-interval-btn" onclick="changePlayInterval()">1</button>
+            <span>Play Interval (seconds)</span>
+        </div>
     </div>
-</div>
+    <!-- 新增显示选项 -->
+    <div class="display-options">
+        <label>
+            <input type="checkbox" id="toggleEnglish" checked>
+            show english
+        </label>
+        <label>
+            <input type="checkbox" id="toggleTranslation" checked>
+            show translate
+        </label>
+    </div>
 
-<!-- 音频播放器 -->
-<audio id="audio_player" controls></audio>
+    <!-- 移除“Set Play Options”按钮 -->
+    <!--
+    <div class="controls">
+        <button class="control-btn" onclick="setPlayOptions()">Set Play Options</button>
+    </div>
+    -->
+    <div class="controls">
+        <button class="control-btn" onclick="window.location.href='/file/edit'">Edit File</button>
+    </div>
+    <div class="controls">
+        <button class="control-btn" id="toggleModeBtn" onclick="togglePlayMode()">sequential</button>
+    </div>
 
-<script>
-    let isPlaying = false;
-    let playCount = 1;
-    let playInterval = 1000; // 毫秒
-    let currentPlay = 0;
-    let audioPlayer = document.getElementById('audio_player');
-    let toggleModeBtn = document.getElementById('toggleModeBtn');
-    let previousBtn = document.getElementById('previousBtn');
-    let nextBtn = document.getElementById('nextBtn');
-    let playCountBtn = document.getElementById('play-count-btn');
-    let playIntervalBtn = document.getElementById('play-interval-btn');
-    let translatedText = document.getElementById('translated-text');
-    let currentText = document.getElementById('current-text');
+    <!-- 新增颜色设定按钮 -->
+    <div class="controls">
+        <button class="control-btn" id="colorSettingBtn" onclick="toggleColorSetting()">Color Setting</button>
+    </div>
 
-    // 新增显示选项元素
-    let toggleEnglish = document.getElementById('toggleEnglish');
-    let toggleTranslation = document.getElementById('toggleTranslation');
+    <!-- 新增扫描选项 -->
+    <div class="scan-options">
+        <button class="scan-btn" id="scanTranslationAndAudio" onclick="scanTranslationAndAudio()">scan new resource</button>
+        <!--?        <button class="scan-btn" id="scanTranslationBtn" onclick="scanTranslation()">扫描翻译</button>-->
+    </div>
 
-    // 新增蒙版和进度条元素
-    let overlay = document.getElementById('overlay');
-    let overlayProgressFill = document.getElementById('overlay-progress-fill');
-    let overlayProgressText = document.getElementById('overlay-progress-text');
+    <!-- 音频播放器 -->
+    <audio id="audio_player" controls></audio>
 
-    // 初始化播放模式按钮和按钮状态
-    fetch('/get_play_mode')
+    <script>
+        let isPlaying = false;
+        let playCount = 1;
+        let playInterval = 1000; // 毫秒
+        let currentPlay = 0;
+        let audioPlayer = document.getElementById('audio_player');
+        let toggleModeBtn = document.getElementById('toggleModeBtn');
+        let previousBtn = document.getElementById('previousBtn');
+        let nextBtn = document.getElementById('nextBtn');
+        let playCountBtn = document.getElementById('play-count-btn');
+        let playIntervalBtn = document.getElementById('play-interval-btn');
+        let translatedText = document.getElementById('translated-text');
+        let currentText = document.getElementById('current-text');
+
+        // 新增显示选项元素
+        let toggleEnglish = document.getElementById('toggleEnglish');
+        let toggleTranslation = document.getElementById('toggleTranslation');
+
+        // 删除弹框和进度条相关的元素引用
+        // let overlay = document.getElementById('overlay');
+        // let overlayProgressFill = document.getElementById('overlay-progress-fill');
+        // let overlayProgressText = document.getElementById('overlay-progress-text');
+        // let overlayHeading = document.getElementById('overlay-heading'); // 新增用于显示错误消息
+
+        // 新增颜色设定状态
+        let colorSettingActive = false;
+
+        // 新增：存储所有色彩变更
+        let colorChanges = [];
+
+        // 新增：跟踪当前句子的索引
+        let currentSentenceIndex = 0;
+
+        // 初始化播放模式按钮和按钮状态
+        fetch('/get_play_mode')
             .then(response => response.json())
             .then(data => {
                 if (data.play_mode === 'sequential') {
@@ -351,8 +414,8 @@
                 console.error('Error fetching play mode:', error);
             });
 
-    // 初始化播放选项按钮显示
-    fetch('/get_play_options') // 确保后端已经添加了此路由
+        // 初始化播放选项按钮显示
+        fetch('/get_play_options') // 确保后端已经添加了此路由
             .then(response => response.json())
             .then(data => {
                 if (data.play_count) {
@@ -368,332 +431,517 @@
                 console.error('Error fetching play options:', error);
             });
 
-    // 显示选项初始化
-    toggleEnglish.addEventListener('change', function () {
-        if (this.checked) {
-            currentText.style.display = 'block';
-        } else {
-            currentText.style.display = 'none';
-        }
-    });
+        // 显示选项初始化
+        toggleEnglish.addEventListener('change', function () {
+            if (this.checked) {
+                currentText.style.display = 'block';
+            } else {
+                currentText.style.display = 'none';
+            }
+        });
 
-    toggleTranslation.addEventListener('change', function () {
-        if (this.checked) {
-            translatedText.style.display = 'block';
-        } else {
-            translatedText.style.display = 'none';
-        }
-    });
+        toggleTranslation.addEventListener('change', function () {
+            if (this.checked) {
+                translatedText.style.display = 'block';
+            } else {
+                translatedText.style.display = 'none';
+            }
+        });
 
-    // 更新当前文本显示并翻译
-    function updateText(text) {
-        currentText.innerText = `${text}`;
-        translateText(text);
-    }
+        // 更新当前文本显示并翻译
+        function updateText(text, sentenceIndex) {
+            // 清除现有内容
+            currentText.innerHTML = '';
 
-    function translateText(text) {
-        // 使用服务器端的翻译API
-        fetch('/translate', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({text: text})
-        })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        translatedText.innerText = `${data.translated_text}`;
-                    } else {
-                        translatedText.innerText = 'translate error。';
+            // 更新当前句子索引
+            currentSentenceIndex = sentenceIndex;
+
+            // 分析文本中的 <color: content> 格式
+            const regex = /<(\w+):\s*([^>]+)>/g;
+            let lastIndex = 0;
+            let match;
+
+            while ((match = regex.exec(text)) !== null) {
+                const [fullMatch, color, content] = match;
+                const start = match.index;
+                const end = regex.lastIndex;
+
+                // 添加未匹配的文本
+                if (start > lastIndex) {
+                    const plainText = text.substring(lastIndex, start).trim();
+                    const words = plainText.split(/\s+/);
+                    words.forEach(word => {
+                        if (word) {
+                            const span = document.createElement('span');
+                            span.classList.add('highlight');
+                            span.textContent = word;
+                            currentText.appendChild(span);
+                            currentText.appendChild(document.createTextNode(' '));
+                        }
+                    });
+                }
+
+                // 添加带颜色的文本
+                const coloredWords = content.split(/\s+/);
+                coloredWords.forEach(word => {
+                    if (word) {
+                        const span = document.createElement('span');
+                        span.classList.add('highlight', color.toLowerCase());
+                        span.textContent = word;
+                        currentText.appendChild(span);
+                        currentText.appendChild(document.createTextNode(' '));
                     }
-                })
-                .catch(error => {
-                    console.error('Error during translation:', error);
+                });
+
+                lastIndex = end;
+            }
+
+            // 添加剩余的文本
+            if (lastIndex < text.length) {
+                const plainText = text.substring(lastIndex).trim();
+                const words = plainText.split(/\s+/);
+                words.forEach(word => {
+                    if (word) {
+                        const span = document.createElement('span');
+                        span.classList.add('highlight');
+                        span.textContent = word;
+                        currentText.appendChild(span);
+                        currentText.appendChild(document.createTextNode(' '));
+                    }
+                });
+            }
+
+            translateText(text);
+
+            // 如果颜色设定模式激活，重新绑定点击事件
+            if (colorSettingActive) {
+                makeWordsClickable();
+            }
+        }
+
+        // 转义 HTML 特殊字符
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+
+        function translateText(text) {
+            // 使用服务器端的翻译API
+            fetch('/translate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({text: text})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    translatedText.innerText = `${data.translated_text}`;
+                } else {
                     translatedText.innerText = 'translate error。';
-                });
-    }
-
-    function togglePlayPause() {
-        const playPauseBtn = document.getElementById('playPauseBtn');
-        disableButton(playPauseBtn, 200); // Disable for 0.5s
-
-        if (!isPlaying) {
-            isPlaying = true;
-            playPauseBtn.textContent = '⏸'; // Change to pause symbol
-            playNext();
-        } else {
-            isPlaying = false;
-            audioPlayer.pause();
-            playPauseBtn.textContent = '▶️'; // Change to play symbol
+                }
+            })
+            .catch(error => {
+                console.error('Error during translation:', error);
+                translatedText.innerText = 'translate error。';
+            });
         }
-    }
 
-    function playNext() {
-        if (!isPlaying) return;
+        function togglePlayPause() {
+            const playPauseBtn = document.getElementById('playPauseBtn');
+            disableButton(playPauseBtn, 200); // Disable for 0.5s
 
-        fetch('/play', {method: 'POST'})
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        const audioUrl = data.audio_url;
-                        const text = data.text;
-                        updateText(text);
-                        currentPlay = 0;
+            if (!isPlaying) {
+                isPlaying = true;
+                playPauseBtn.textContent = '⏸'; // Change to pause symbol
+                playNext();
+            } else {
+                isPlaying = false;
+                audioPlayer.pause();
+                playPauseBtn.textContent = '▶️'; // Change to play symbol
+            }
+        }
 
-                        function playLoop() {
-                            if (!isPlaying) return;
+        function playNext() {
+            if (!isPlaying) return;
 
-                            audioPlayer.src = audioUrl;
-                            audioPlayer.style.display = 'block';
-                            audioPlayer.play();
+            fetch('/play', {method: 'POST'})
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const audioUrl = data.audio_url;
+                    const text = data.text;
+                    const sentenceIndex = data.current_index;
+                    updateText(text, sentenceIndex);
+                    currentPlay = 0;
 
-                            audioPlayer.onended = () => {
-                                currentPlay++;
-                                if (currentPlay < playCount) {
-                                    // 播放次数未达到，重新播放当前音频
-                                    setTimeout(playLoop, playInterval);
-                                } else {
-                                    // 播放次数达到，重置并等待间隔后播放下一句
-                                    currentPlay = 0;
-                                    setTimeout(() => {
-                                        moveToNextLine();
-                                    }, playInterval);
-                                }
-                            };
-                        }
+                    function playLoop() {
+                        if (!isPlaying) return;
 
-                        playLoop();
-                    } else if (data.status === 'no_more_text') {
-                        alert('no much more。');
-                        isPlaying = false;
-                        document.getElementById('playPauseBtn').textContent = '▶️';
+                        audioPlayer.src = audioUrl;
+                        audioPlayer.style.display = 'block';
+                        audioPlayer.play();
+
+                        audioPlayer.onended = () => {
+                            currentPlay++;
+                            if (currentPlay < playCount) {
+                                // 播放次数未达到，重新播放当前音频
+                                setTimeout(playLoop, playInterval);
+                            } else {
+                                // 播放次数达到，重置并等待间隔后播放下一句
+                                currentPlay = 0;
+                                setTimeout(() => {
+                                    moveToNextLine();
+                                }, playInterval);
+                            }
+                        };
                     }
-                })
-                .catch(error => {
-                    console.error('Error during playNext:', error);
-                });
-    }
 
-    function moveToNextLine() {
-        fetch('/next', {method: 'POST'})
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        if (isPlaying) {
+                    playLoop();
+                } else if (data.status === 'no_more_text') {
+                    alert('no much more。');
+                    isPlaying = false;
+                    document.getElementById('playPauseBtn').textContent = '▶️';
+                }
+            })
+            .catch(error => {
+                console.error('Error during playNext:', error);
+            });
+        }
+
+        function moveToNextLine() {
+            fetch('/next', {method: 'POST'})
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    if (isPlaying) {
+                        playNext();
+                    }
+                } else if (data.status === 'no_more_text') {
+                    alert('no much more。');
+                    isPlaying = false;
+                    document.getElementById('playPauseBtn').textContent = '▶️';
+                }
+            })
+            .catch(error => {
+                console.error('Error during moveToNextLine:', error);
+            });
+        }
+
+        function setPlayOptions(playCountValue, playIntervalValue) {
+            fetch('/set_play_options', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: `play_count=${playCountValue}&play_interval=${playIntervalValue}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'options_set') {
+                    // 可选：显示成功消息或其他反馈
+                } else if (data.status === 'error') {
+                    alert(`error: ${data.message}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error during setPlayOptions:', error);
+            });
+        }
+
+        function previousLine() {
+            // 仅在顺序模式下启用
+            fetch('/get_play_mode')
+            .then(response => response.json())
+            .then(data => {
+                if (data.play_mode === 'sequential') {
+                    fetch('/previous', {method: 'POST'})
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            // 停止当前播放
+                            isPlaying = false;
+                            audioPlayer.pause();
+                            audioPlayer.style.display = 'none';
+                            document.getElementById('playPauseBtn').textContent = '▶️';
+
+                            // 立即播放上一句
+                            isPlaying = true;
+                            document.getElementById('playPauseBtn').textContent = '⏸';
                             playNext();
+                        } else {
+                            alert('have first。');
                         }
-                    } else if (data.status === 'no_more_text') {
-                        alert('no much more。');
-                        isPlaying = false;
-                        document.getElementById('playPauseBtn').textContent = '▶️';
-                    }
-                })
-                .catch(error => {
-                    console.error('Error during moveToNextLine:', error);
-                });
-    }
-
-    function setPlayOptions(playCountValue, playIntervalValue) {
-        fetch('/set_play_options', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: `play_count=${playCountValue}&play_interval=${playIntervalValue}`
-        })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'options_set') {
-                        // 可选：显示成功消息或其他反馈
-                    } else if (data.status === 'error') {
-                        alert(`error: ${data.message}`);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error during setPlayOptions:', error);
-                });
-    }
-
-    function previousLine() {
-        // 仅在顺序模式下启用
-        fetch('/get_play_mode')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.play_mode === 'sequential') {
-                        fetch('/previous', {method: 'POST'})
-                                .then(response => response.json())
-                                .then(data => {
-                                    if (data.status === 'success') {
-                                        // 停止当前播放
-                                        isPlaying = false;
-                                        audioPlayer.pause();
-                                        audioPlayer.style.display = 'none';
-                                        document.getElementById('playPauseBtn').textContent = '▶️';
-
-                                        // 立即播放上一句
-                                        isPlaying = true;
-                                        document.getElementById('playPauseBtn').textContent = '⏸';
-                                        playNext();
-                                    } else {
-                                        alert('have first。');
-                                    }
-                                })
-                                .catch(error => {
-                                    console.error('Error during previousLine:', error);
-                                });
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching play mode:', error);
-                });
-    }
-
-    function nextLine() {
-        // 仅在顺序模式下启用
-        fetch('/get_play_mode')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.play_mode === 'sequential') {
-                        fetch('/next', {method: 'POST'})
-                                .then(response => response.json())
-                                .then(data => {
-                                    if (data.status === 'success') {
-                                        // 停止当前播放
-                                        isPlaying = false;
-                                        audioPlayer.pause();
-                                        audioPlayer.style.display = 'none';
-                                        document.getElementById('playPauseBtn').textContent = '▶️';
-
-                                        // 立即播放下一句
-                                        isPlaying = true;
-                                        document.getElementById('playPauseBtn').textContent = '⏸';
-                                        playNext();
-                                    } else {
-                                        alert('no much more。');
-                                    }
-                                })
-                                .catch(error => {
-                                    console.error('Error during nextLine:', error);
-                                });
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching play mode:', error);
-                });
-    }
-
-    function togglePlayMode() {
-        disableButton(toggleModeBtn, 200); // Disable for 0.5s
-
-        fetch('/toggle_play_mode', {method: 'POST'})
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'mode_toggled') {
-                        if (data.play_mode === 'sequential') {
-                            toggleModeBtn.textContent = 'sequential';
-                            enableNavigationButtons();
-                        } else if (data.play_mode === 'random') {
-                            toggleModeBtn.textContent = 'random';
-                            disableNavigationButtons();
-                        }
-                    }
-                })
-                .catch(error => {
-                    console.error('Error during togglePlayMode:', error);
-                });
-    }
-
-    function enableNavigationButtons() {
-        previousBtn.disabled = false;
-        nextBtn.disabled = false;
-    }
-
-    function disableNavigationButtons() {
-        previousBtn.disabled = true;
-        nextBtn.disabled = true;
-    }
-
-    function changePlayCount() {
-        // 循环 playCount 从1到3，再回到1
-        playCount = playCount < 3 ? playCount + 1 : 1;
-        playCountBtn.textContent = playCount;
-        setPlayOptions(playCount, playInterval / 1000); // 立即设置
-    }
-
-    function changePlayInterval() {
-        // 循环 playInterval 从1到3，再回到1
-        playInterval = playInterval < 3000 ? playInterval + 1000 : 1000;
-        playIntervalBtn.textContent = playInterval / 1000;
-        setPlayOptions(playCount, playInterval / 1000); // 立即设置
-    }
-
-    function disableButton(button, duration) {
-        button.disabled = true;
-        setTimeout(() => {
-            button.disabled = false;
-        }, duration);
-    }
-
-    async function scanTranslationAndAudio() {
-        const scanTranslationAndAudio = document.getElementById('scanTranslationAndAudio');
-        disableButton(scanTranslationAndAudio, 200); // 禁用按钮以防重复点击
-
-        // 显示蒙版和进度条
-        overlay.style.display = 'flex';
-        overlayProgressFill.style.width = '0%';
-        overlayProgressText.innerText = '扫描进度: 0%';
-
-        let msgs = "";
-        let progress = 0;
-
-        try {
-            const audioResponse = await fetch('/scan_audio', {method: 'POST'});
-            const audioData = await audioResponse.json();
-            if (audioData.status === 'success') {
-                msgs += `音频扫描完成。新增音频文件: ${audioData.new_audio_count}`;
-                progress = 50;
-                overlayProgressFill.style.width = `${progress}%`;
-                overlayProgressText.innerText = `扫描进度: ${progress}%`;
-            } else {
-                msgs += `音频扫描错误: ${audioData.message}`;
-                overlay.style.display = 'none';
-            }
-        } catch (error) {
-            console.error('Error during scanAudio:', error);
-            msgs += '音频扫描错误。';
-            overlay.style.display = 'none';
+                    })
+                    .catch(error => {
+                        console.error('Error during previousLine:', error);
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching play mode:', error);
+            });
         }
 
-        try {
-            const translationResponse = await fetch('/scan_translation', {method: 'POST'});
-            const translationData = await translationResponse.json();
-            if (translationData.status === 'success') {
-                msgs += `；翻译扫描完成。新增翻译条目: ${translationData.new_translation_count}`;
-                progress = 100;
-                overlayProgressFill.style.width = `${progress}%`;
-                overlayProgressText.innerText = `扫描进度: ${progress}%`;
-            } else {
-                msgs += `；翻译扫描错误: ${translationData.message}`;
-                overlay.style.display = 'none';
-            }
-        } catch (error) {
-            console.error('Error during scanTranslation:', error);
-            msgs += '；翻译扫描错误。';
-            overlay.style.display = 'none';
+        function nextLine() {
+            // 仅在顺序模式下启用
+            fetch('/get_play_mode')
+            .then(response => response.json())
+            .then(data => {
+                if (data.play_mode === 'sequential') {
+                    fetch('/next', {method: 'POST'})
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            // 停止当前播放
+                            isPlaying = false;
+                            audioPlayer.pause();
+                            audioPlayer.style.display = 'none';
+                            document.getElementById('playPauseBtn').textContent = '▶️';
+
+                            // 立即播放下一句
+                            isPlaying = true;
+                            document.getElementById('playPauseBtn').textContent = '⏸';
+                            playNext();
+                        } else {
+                            alert('no much more。');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error during nextLine:', error);
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching play mode:', error);
+            });
         }
 
-        alert(msgs);
-        // 隐藏蒙版 after a short delay
-        setTimeout(() => {
-            overlay.style.display = 'none';
-            overlayProgressFill.style.width = '0%';
-            overlayProgressText.innerText = '扫描进度: 0%';
-        }, 1000);
-    }
+        function togglePlayMode() {
+            disableButton(toggleModeBtn, 200); // Disable for 0.5s
 
+            fetch('/toggle_play_mode', {method: 'POST'})
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'mode_toggled') {
+                    if (data.play_mode === 'sequential') {
+                        toggleModeBtn.textContent = 'sequential';
+                        enableNavigationButtons();
+                    } else if (data.play_mode === 'random') {
+                        toggleModeBtn.textContent = 'random';
+                        disableNavigationButtons();
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error during togglePlayMode:', error);
+            });
+        }
 
-    window.addEventListener('beforeunload', function () {
-        fetch('/stop', {method: 'POST'});
-    });
-</script>
+        function enableNavigationButtons() {
+            previousBtn.disabled = false;
+            nextBtn.disabled = false;
+        }
+
+        function disableNavigationButtons() {
+            previousBtn.disabled = true;
+            nextBtn.disabled = true;
+        }
+
+        function changePlayCount() {
+            // 循环 playCount 从1到3，再回到1
+            playCount = playCount < 3 ? playCount + 1 : 1;
+            playCountBtn.textContent = playCount;
+            setPlayOptions(playCount, playInterval / 1000); // 立即设置
+        }
+
+        function changePlayInterval() {
+            // 循环 playInterval 从1到3，再回到1
+            playInterval = playInterval < 3000 ? playInterval + 1000 : 1000;
+            playIntervalBtn.textContent = playInterval / 1000;
+            setPlayOptions(playCount, playInterval / 1000); // 立即设置
+        }
+
+        function disableButton(button, duration) {
+            button.disabled = true;
+            setTimeout(() => {
+                button.disabled = false;
+            }, duration);
+        }
+
+        async function scanTranslationAndAudio() {
+            const scanTranslationAndAudio = document.getElementById('scanTranslationAndAudio');
+            disableButton(scanTranslationAndAudio, 200); // 禁用按钮以防重复点击
+
+            let msgs = "";
+            let progress = 0;
+
+            try {
+                const audioResponse = await fetch('/scan_audio', {method: 'POST'});
+                const audioData = await audioResponse.json();
+                if (audioData.status === 'success') {
+                    msgs += `音频扫描完成。新增音频文件: ${audioData.new_audio_count}`;
+                    progress = 50;
+                    // 可以选择使用 console.log 来显示进度
+                    console.log(`扫描进度: ${progress}%`);
+                } else {
+                    msgs += `音频扫描错误: ${audioData.message}`;
+                    // 显示错误信息
+                    alert(`音频扫描错误: ${audioData.message}`);
+                }
+            } catch (error) {
+                console.error('Error during scanAudio:', error);
+                msgs += '音频扫描错误。';
+                alert('音频扫描错误。');
+            }
+
+            try {
+                const translationResponse = await fetch('/scan_translation', {method: 'POST'});
+                const translationData = await translationResponse.json();
+                if (translationData.status === 'success') {
+                    msgs += `；翻译扫描完成。新增翻译条目: ${translationData.new_translation_count}`;
+                    progress = 100;
+                    console.log(`扫描进度: ${progress}%`);
+                } else {
+                    msgs += `；翻译扫描错误: ${translationData.message}`;
+                    alert(`翻译扫描错误: ${translationData.message}`);
+                }
+            } catch (error) {
+                console.error('Error during scanTranslation:', error);
+                msgs += '；翻译扫描错误。';
+                alert('翻译扫描错误。');
+            }
+
+            if (!msgs.includes('错误')) {
+                // 成功完成后，使用 alert 显示消息
+                alert(msgs);
+            }
+            // 如果有错误信息，已经通过 alert 显示，不需要额外处理
+        }
+
+        window.addEventListener('beforeunload', function () {
+            fetch('/stop', {method: 'POST'});
+        });
+
+        // 新增：颜色设定功能
+
+        // 颜色设定按钮点击事件
+        function toggleColorSetting() {
+            colorSettingActive = !colorSettingActive;
+            if (colorSettingActive) {
+                colorSettingBtn.textContent = 'Color Setting (Active)';
+                makeWordsClickable();
+
+                // 停止当前播放
+                if (isPlaying) {
+                    isPlaying = false;
+                    audioPlayer.pause();
+                    document.getElementById('playPauseBtn').textContent = '▶️';
+                }
+            } else {
+                colorSettingBtn.textContent = 'Color Setting';
+                // Save all color changes at once
+                saveColorChanges();
+            }
+        }
+
+        // 存储所有颜色变更
+        function toggleWordColor(span, wordIndex) {
+            const color = 'red'; // 仅支持红色
+
+            // 检查当前是否已标注为红色
+            if (span.classList.contains('red')) {
+                // 如果已标注为红色，移除标注
+                span.classList.remove('red');
+                span.style.color = '#333'; // 恢复原始颜色
+                // 记录移除操作
+                colorChanges.push({
+                    word_index: wordIndex,
+                    color: null  // null 表示移除颜色
+                });
+            } else {
+                // 标注为红色
+                span.classList.add('red');
+                span.style.color = '#FF0000';
+                // 记录添加操作
+                colorChanges.push({
+                    word_index: wordIndex,
+                    color: color
+                });
+            }
+        }
+
+        // 获取颜色代码
+        function getColorCode(color) {
+            const colorMap = {
+                'red': '#FF0000'
+            };
+            return colorMap[color] || '#000000';
+        }
+
+        // 保存所有颜色变更
+        function saveColorChanges() {
+            if (colorChanges.length === 0) return;
+
+            fetch('/update_word_color', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    sentence_index: currentSentenceIndex, // 使用当前句子的索引
+                    color_changes: colorChanges
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    console.log('All word colors updated successfully.');
+                    colorChanges = []; // Clear changes after successful update
+                    // 立即刷新文本以显示所有颜色标注
+                    fetchCurrentText();
+                } else {
+                    alert(`Error: ${data.message}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error updating word colors:', error);
+                alert('Failed to update word colors.');
+            });
+        }
+
+        // 将句子中的单词变为可点击状态
+        function makeWordsClickable() {
+            const spans = currentText.querySelectorAll('span.highlight');
+            spans.forEach((span, index) => {
+                span.style.cursor = 'pointer';
+                span.onclick = () => toggleWordColor(span, index);
+            });
+        }
+
+        // 获取当前文本并渲染
+        function fetchCurrentText() {
+            fetch('/get_current_text', {method: 'GET'})
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success' && data.text && data.sentence_index !== -1) {
+                    updateText(data.text, data.sentence_index); // 更新文本和句子索引
+                } else {
+                    console.error('Error fetching current text:', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching current text:', error);
+            });
+        }
+
+        // 初始化页面时获取当前文本
+        window.onload = fetchCurrentText;
+    </script>
 </body>
 </html>

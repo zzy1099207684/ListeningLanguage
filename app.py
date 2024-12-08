@@ -13,6 +13,7 @@ import hashlib
 import json
 from deep_translator import GoogleTranslator
 import threading
+import re
 
 app = Flask(__name__)
 app.register_blueprint(edit_file_blueprint, url_prefix='/file')
@@ -110,7 +111,8 @@ def index():
     return render_template('index.html')
 
 def get_audio_file_path(text):
-    text_hash = hashlib.sha256(text.encode('utf-8')).hexdigest()
+    text_clean = re.sub(r'<\w+:\s*[^>]+>', '', text)  # 移除所有颜色标签
+    text_hash = hashlib.sha256(text_clean.encode('utf-8')).hexdigest()
     filename = f"audio_{text_hash}.mp3"
     file_path = os.path.join(AUDIO_PERSISTENT_DIR, filename)
     return filename, file_path
@@ -134,7 +136,9 @@ def play():
 
         # 如果音频文件已经存在，则不再生成
         if not os.path.exists(file_path):
-            tts = gTTS(text=text, lang='en', tld='com')
+            # 移除颜色标签后生成音频
+            text_clean = re.sub(r'<\w+:\s*([^>]+)>', r'\1', text)
+            tts = gTTS(text=text_clean, lang='en', tld='com')
             tts.save(file_path)
             temp_files.append(filename)
 
@@ -165,7 +169,9 @@ def play():
 
         # 如果音频文件已经存在，则不再生成
         if not os.path.exists(file_path):
-            tts = gTTS(text=text, lang='en', tld='com')
+            # 移除颜色标签后生成音频
+            text_clean = re.sub(r'<\w+:\s*([^>]+)>', r'\1', text)
+            tts = gTTS(text=text_clean, lang='en', tld='com')
             tts.save(file_path)
             temp_files.append(filename)
 
@@ -200,10 +206,19 @@ def get_play_options():
 
 @app.route('/get_current_text', methods=['GET'])
 def get_current_text():
-    if 0 <= session['current_index'] < total_lines:
-        return jsonify({'text': lines[session['current_index']]})
+    # **修改**：每次请求都从 store.txt 读取最新文本
+    current_lines = read_text_file(TEXT_FILE_PATH)
+    current_total = len(current_lines)
+    if 'current_index' not in session:
+        session['current_index'] = 0
+    if 0 <= session['current_index'] < current_total:
+        return jsonify({
+            'status': 'success',
+            'text': current_lines[session['current_index']],
+            'sentence_index': session['current_index']
+        })  # 返回单行文本和句子索引
     else:
-        return jsonify({'text': 'no more.'})
+        return jsonify({'status': 'success', 'text': 'no more.', 'sentence_index': -1})
 
 @app.route('/stop', methods=['POST'])
 def stop():
@@ -282,7 +297,9 @@ def scan_audio():
             filename, file_path = get_audio_file_path(text)
             current_audio_filenames.add(filename)
             if not os.path.exists(file_path):
-                tts = gTTS(text=text, lang='en', tld='com')
+                # 移除颜色标签后生成音频
+                text_clean = re.sub(r'<\w+:\s*([^>]+)>', r'\1', text)
+                tts = gTTS(text=text_clean, lang='en', tld='com')
                 tts.save(file_path)
                 temp_files.append(filename)
                 new_audio_count += 1
@@ -318,7 +335,9 @@ def scan_translation():
             # 添加新的翻译，仅翻译尚未翻译的句子
             for text in lines:
                 if text not in translations:
-                    translated_text = GoogleTranslator(source='en', target='zh-CN').translate(text)
+                    # **修改**：移除颜色标签后进行翻译
+                    text_clean = re.sub(r'<\w+:\s*([^>]+)>', r'\1', text)
+                    translated_text = GoogleTranslator(source='en', target='zh-CN').translate(text_clean)
                     translations[text] = translated_text
                     new_translation_count += 1
 
@@ -346,10 +365,18 @@ def translate():
         return jsonify({'status': 'error', 'message': 'No text provided.'}), 400
     try:
         with translations_lock:
-            if text in translations:
-                translated_text = translations[text]
+            # **修改**：移除颜色标签后进行翻译
+            text_clean = re.sub(r'<\w+:\s*([^>]+)>', r'\1', text)
+            # 查找对应的原文
+            original_text = None
+            for key, value in translations.items():
+                if value == text_clean:
+                    original_text = key
+                    break
+            if original_text:
+                translated_text = translations.get(original_text, '')
             else:
-                translated_text = GoogleTranslator(source='en', target='zh-CN').translate(text)
+                translated_text = GoogleTranslator(source='en', target='zh-CN').translate(text_clean)
                 translations[text] = translated_text
                 # 保存到翻译文件
                 with open(TRANSLATIONS_FILE_PATH, 'w', encoding='utf-8') as f:
@@ -358,6 +385,101 @@ def translate():
     except Exception as e:
         print(f"Translation error: {e}")
         return jsonify({'status': 'error', 'message': 'Translation failed.'}), 500
+
+# 修改后的保存颜色标注的路由
+@app.route('/update_word_color', methods=['POST'])
+def update_word_color():
+    global lines, total_lines  # 将 global 声明移动到函数开头
+    try:
+        data = request.get_json()
+        sentence_index = int(data.get('sentence_index'))
+        color_changes = data.get('color_changes', [])  # Expecting a list of {word_index, color}
+
+        if not isinstance(color_changes, list):
+            # Single color change
+            color_changes = [{
+                'word_index': int(data.get('word_index')),
+                'color': data.get('color')
+            }]
+
+        # 读取当前文本
+        if not os.path.exists(TEXT_FILE_PATH):
+            return jsonify({'status': 'error', 'message': 'Text file does not exist.'}), 400
+
+        with open(TEXT_FILE_PATH, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+
+        if sentence_index >= len(lines):
+            return jsonify({'status': 'error', 'message': 'Sentence index out of range.'}), 400
+
+        line = lines[sentence_index].strip()
+
+        # Parse the line into words, and mark red words
+        word_red = []
+        words = []
+        pattern = re.compile(r'<red:\s*([^>]+)>')
+        last = 0
+        for match in pattern.finditer(line):
+            start, end = match.span()
+            if start > last:
+                plain_text = line[last:start].strip()
+                if plain_text:
+                    plain_words = plain_text.split()
+                    words.extend(plain_words)
+                    word_red.extend([False]*len(plain_words))
+            red_text = match.group(1).strip()
+            if red_text:
+                red_words = red_text.split()
+                words.extend(red_words)
+                word_red.extend([True]*len(red_words))
+            last = end
+        if last < len(line):
+            plain_text = line[last:].strip()
+            if plain_text:
+                plain_words = plain_text.split()
+                words.extend(plain_words)
+                word_red.extend([False]*len(plain_words))
+
+        # Apply color changes
+        for change in color_changes:
+            word_index = int(change.get('word_index'))
+            color = change.get('color')  # 'red' or None
+
+            if word_index < 0 or word_index >= len(words):
+                return jsonify({'status': 'error', 'message': f'Word index {word_index} out of range.'}), 400
+
+            if color is not None:
+                if not isinstance(color, str) or color.lower() != 'red':
+                    return jsonify({'status': 'error', 'message': 'Only red color is supported.'}), 400
+                word_red[word_index] = True
+            else:
+                word_red[word_index] = False
+
+        # Reconstruct the line by wrapping each red word in <red: word> tags
+        modified_line = ''
+        for i, word in enumerate(words):
+            if word_red[i]:
+                modified_line += f'<red: {word}> '
+            else:
+                modified_line += f'{word} '
+
+        modified_line = modified_line.strip()
+
+        # Update the lines list
+        lines[sentence_index] = modified_line + '\n'
+
+        # 写回文件
+        with open(TEXT_FILE_PATH, 'w', encoding='utf-8') as f:
+            f.writelines(lines)
+
+        # 更新全局的 lines 和 total_lines 变量
+        lines = read_text_file(TEXT_FILE_PATH)
+        total_lines = len(lines)
+
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        print(f"Error updating word color: {e}")
+        return jsonify({'status': 'error', 'message': 'Could not update word color.'}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=80)
