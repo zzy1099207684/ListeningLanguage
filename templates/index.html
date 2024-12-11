@@ -392,7 +392,7 @@
                 if (data.status === 'success') {
                     translatedText.innerText = `${data.translated_text}`;
                 } else if (data.status === 'missing_translation') {
-                    translatedText.innerText = '当前文本暂无翻译，请点击 "scan new resource" 按钮生成翻译资源。';
+                    translatedText.innerText = 'The current text has no translation, please click the "scan new resource" button to generate translation resources.';
                 } else {
                     translatedText.innerText = 'translate error。';
                 }
@@ -623,12 +623,12 @@
             source.onmessage = function(event) {
                 const data = JSON.parse(event.data);
                 if (data.status === 'working') {
-                    scanProgress.innerText = `正在生成资源: ${data.current_index}/${data.total} (${data.progress.toFixed(2)}%)`;
+                    scanProgress.innerText = `Resource being generated: ${data.current_index}/${data.total} (${data.progress.toFixed(2)}%)`;
                 } else if (data.status === 'done') {
-                    scanProgress.innerText = "完成所有资源生成。";
+                    scanProgress.innerText = "Complete all resource generation。";
                     source.close();
                 } else if (data.status === 'error') {
-                    scanProgress.innerText = "生成过程中出现错误：" + data.message;
+                    scanProgress.innerText = "An error occurred during generation：" + data.message;
                     source.close();
                 }
             };
@@ -660,17 +660,17 @@
                         })
                         .then(response => response.json())
                         .then(data => {
-                            let translation = '暂无翻译';
+                            let translation = 'No translation available';
                             if (data.status === 'success') {
                                 translation = data.translated_text;
                             } else if (data.status === 'missing_translation') {
-                                translation = '暂无翻译';
+                                translation = 'No translation available';
                             }
                             showWordTooltip(word, translation);
                         })
                         .catch(error => {
                             console.error('Error translating word:', error);
-                            showWordTooltip(word, '翻译出错。');
+                            showWordTooltip(word, 'Translation error。');
                         });
                     }
                 };
