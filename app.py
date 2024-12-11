@@ -1,6 +1,6 @@
-# app.py
+#app.py
 
-from flask import Flask, render_template, request, jsonify, send_from_directory, session
+from flask import Flask, render_template, request, jsonify, send_from_directory, session, Response
 from flask_session import Session
 from gtts import gTTS
 import tempfile
@@ -149,9 +149,6 @@ def play():
             'current_index': line_index
         }
 
-        # **移除自动递增**
-        # session['current_index'] += 1
-
         return jsonify(response)
 
     elif session['play_mode'] == 'random':
@@ -206,7 +203,6 @@ def get_play_options():
 
 @app.route('/get_current_text', methods=['GET'])
 def get_current_text():
-    # **修改**：每次请求都从 store.txt 读取最新文本
     current_lines = read_text_file(TEXT_FILE_PATH)
     current_total = len(current_lines)
     if 'current_index' not in session:
@@ -282,109 +278,50 @@ def previous_line():
     else:
         return jsonify({'status': 'error', 'message': 'Unknown play mode.'})
 
-# 新增扫描音频路由
-@app.route('/scan_audio', methods=['POST'])
-def scan_audio():
-    global lines, total_lines
-    try:
-        lines = read_text_file(TEXT_FILE_PATH)
-        total_lines = len(lines)
-        new_audio_count = 0
+# 新的扫描资源路由(使用SSE)
+@app.route('/scan_resources', methods=['GET'])
+def scan_resources():
+    def generate_events():
+        try:
+            # 重新读取文本文件
+            current_lines = read_text_file(TEXT_FILE_PATH)
+            total = len(current_lines)
+            if total == 0:
+                yield f"data: {{\"status\":\"done\",\"message\":\"no data\"}}\n\n"
+                return
 
-        current_audio_filenames = set()
+            with translations_lock:
+                # 加载最新翻译
+                translations = load_translations()
 
-        for text in lines:
-            filename, file_path = get_audio_file_path(text)
-            current_audio_filenames.add(filename)
-            if not os.path.exists(file_path):
-                # 移除颜色标签后生成音频
-                text_clean = re.sub(r'<\w+:\s*([^>]+)>', r'\1', text)
-                tts = gTTS(text=text_clean, lang='en', tld='com')
-                tts.save(file_path)
-                temp_files.append(filename)
-                new_audio_count += 1
-
-        # 删除不在当前文本中的音频文件
-        existing_audio_files = set(os.listdir(AUDIO_PERSISTENT_DIR))
-        obsolete_audio_files = existing_audio_files - current_audio_filenames
-        for obsolete_file in obsolete_audio_files:
-            try:
-                os.remove(os.path.join(AUDIO_PERSISTENT_DIR, obsolete_file))
-                print(f"Deleted obsolete audio file: {obsolete_file}")
-            except Exception as e:
-                print(f"Error deleting obsolete audio file {obsolete_file}: {e}")
-
-        return jsonify({'status': 'success', 'new_audio_count': new_audio_count})
-    except Exception as e:
-        print(f"Error during scan_audio: {e}")
-        return jsonify({'status': 'error', 'message': 'error。'}), 500
-
-# 修改后的扫描翻译路由
-@app.route('/scan_translation', methods=['POST'])
-def scan_translation():
-    global translations
-    try:
-        lines = read_text_file(TEXT_FILE_PATH)
-        new_translation_count = 0
-        current_texts = set(lines)
-
-        with translations_lock:
-            # **新增**：重新加载翻译，确保使用最新的翻译，包括手动修改的翻译
-            translations = load_translations()
-
-            # 添加新的翻译，仅翻译尚未翻译的句子
-            for text in lines:
-                if text not in translations:
-                    # **修改**：移除颜色标签后进行翻译
+            for i, text in enumerate(current_lines):
+                # 生成音频
+                filename, file_path = get_audio_file_path(text)
+                if not os.path.exists(file_path):
                     text_clean = re.sub(r'<\w+:\s*([^>]+)>', r'\1', text)
-                    translated_text = GoogleTranslator(source='en', target='zh-CN').translate(text_clean)
-                    translations[text] = translated_text
-                    new_translation_count += 1
+                    tts = gTTS(text=text_clean, lang='en', tld='com')
+                    tts.save(file_path)
 
-            # 删除不在当前文本中的翻译
-            obsolete_texts = set(translations.keys()) - current_texts
-            for obsolete_text in obsolete_texts:
-                del translations[obsolete_text]
-                print(f"Deleted obsolete translation for text: {obsolete_text}")
+                # 翻译(如果没有则生成并存储)
+                with translations_lock:
+                    translations = load_translations()
+                    if text not in translations:
+                        text_clean = re.sub(r'<\w+:\s*([^>]+)>', r'\1', text)
+                        translated_text = GoogleTranslator(source='en', target='zh-CN').translate(text_clean)
+                        translations[text] = translated_text
+                        with open(TRANSLATIONS_FILE_PATH, 'w', encoding='utf-8') as f:
+                            json.dump(translations, f, ensure_ascii=False, indent=4)
 
-            # 保存新的翻译到文件
-            with open(TRANSLATIONS_FILE_PATH, 'w', encoding='utf-8') as f:
-                json.dump(translations, f, ensure_ascii=False, indent=4)
+                progress = (i + 1) / total * 100
+                yield f"data: {{\"status\":\"working\",\"progress\":{progress},\"current_index\":{i+1},\"total\":{total}}}\n\n"
 
-        return jsonify({'status': 'success', 'new_translation_count': new_translation_count})
-    except Exception as e:
-        print(f"Error during scan_translation: {e}")
-        return jsonify({'status': 'error', 'message': 'error。'}), 500
+            # 全部完成
+            yield f"data: {{\"status\":\"done\"}}\n\n"
 
-# 新增翻译路由，使用 deep_translator 并缓存翻译结果
-@app.route('/translate', methods=['POST'])
-def translate():
-    data = request.get_json()
-    text = data.get('text', '')
-    if not text:
-        return jsonify({'status': 'error', 'message': 'No text provided.'}), 400
-    try:
-        with translations_lock:
-            # **修改**：移除颜色标签后进行翻译
-            text_clean = re.sub(r'<\w+:\s*([^>]+)>', r'\1', text)
-            # 查找对应的原文
-            original_text = None
-            for key, value in translations.items():
-                if value == text_clean:
-                    original_text = key
-                    break
-            if original_text:
-                translated_text = translations.get(original_text, '')
-            else:
-                translated_text = GoogleTranslator(source='en', target='zh-CN').translate(text_clean)
-                translations[text] = translated_text
-                # 保存到翻译文件
-                with open(TRANSLATIONS_FILE_PATH, 'w', encoding='utf-8') as f:
-                    json.dump(translations, f, ensure_ascii=False, indent=4)
-        return jsonify({'status': 'success', 'translated_text': translated_text})
-    except Exception as e:
-        print(f"Translation error: {e}")
-        return jsonify({'status': 'error', 'message': 'Translation failed.'}), 500
+        except Exception as e:
+            yield f"data: {{\"status\":\"error\",\"message\":\"{str(e)}\"}}\n\n"
+
+    return Response(generate_events(), mimetype='text/event-stream')
 
 # 修改后的保存颜色标注的路由
 @app.route('/update_word_color', methods=['POST'])
@@ -480,6 +417,21 @@ def update_word_color():
     except Exception as e:
         print(f"Error updating word color: {e}")
         return jsonify({'status': 'error', 'message': 'Could not update word color.'}), 500
+
+# 修改的翻译路由: 优先从translations.json中获取翻译
+# 若无翻译则返回 "status":"missing_translation"
+@app.route('/translate', methods=['POST'])
+def translate_text():
+    data = request.get_json()
+    text = data.get('text', '')
+    text_clean = re.sub(r'<\w+:\s*([^>]+)>', r'\1', text)
+    with translations_lock:
+        translations = load_translations()
+    if text_clean in translations:
+        translated_text = translations[text_clean]
+        return jsonify({'status': 'success', 'translated_text': translated_text})
+    else:
+        return jsonify({'status': 'missing_translation', 'translated_text': ''})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=80)
