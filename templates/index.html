@@ -177,15 +177,6 @@
             background-color: #3AAE6B;
         }
 
-        #colorSettingBtn {
-            background-color: #8A2BE2;
-            margin-top: 10px;
-        }
-
-        #colorSettingBtn:hover:not(:disabled) {
-            background-color: #7A1FC2;
-        }
-
         .highlight {
             cursor: pointer;
             transition: color 0.3s;
@@ -240,9 +231,6 @@
     <div class="controls">
         <button class="control-btn" id="toggleModeBtn" onclick="togglePlayMode()">sequential</button>
     </div>
-    <div class="controls">
-        <button class="control-btn" id="colorSettingBtn" onclick="toggleColorSetting()">Color Setting</button>
-    </div>
     <div class="scan-options">
         <button class="scan-btn" id="scanTranslationAndAudio" onclick="scanTranslationAndAudio()">scan new resource</button>
     </div>
@@ -266,10 +254,6 @@
 
         let toggleEnglish = document.getElementById('toggleEnglish');
         let toggleTranslation = document.getElementById('toggleTranslation');
-
-        let colorSettingActive = false;
-        let colorChanges = [];
-        let currentSentenceIndex = 0;
 
         fetch('/get_play_mode')
             .then(response => response.json())
@@ -320,7 +304,6 @@
 
         function updateText(text, sentenceIndex) {
             currentText.innerHTML = '';
-            currentSentenceIndex = sentenceIndex;
 
             const regex = /<(\w+):\s*([^>]+)>/g;
             let lastIndex = 0;
@@ -332,8 +315,8 @@
                 const end = regex.lastIndex;
 
                 if (start > lastIndex) {
-                    const plainText = text.substring(lastIndex, start).trim();
-                    const words = plainText.split(/\s+/);
+                    const plain_text_segment = text.substring(lastIndex, start).trim();
+                    const words = plain_text_segment.split(/\s+/);
                     words.forEach(word => {
                         if (word) {
                             const span = document.createElement('span');
@@ -360,8 +343,8 @@
             }
 
             if (lastIndex < text.length) {
-                const plainText = text.substring(lastIndex).trim();
-                const words = plainText.split(/\s+/);
+                const remaining_text = text.substring(lastIndex).trim();
+                const words = remaining_text.split(/\s+/);
                 words.forEach(word => {
                     if (word) {
                         const span = document.createElement('span');
@@ -374,10 +357,6 @@
             }
 
             translateText(text);
-
-            if (colorSettingActive) {
-                makeWordsClickable();
-            }
         }
 
         function translateText(text) {
@@ -392,6 +371,8 @@
             .then(data => {
                 if (data.status === 'success') {
                     translatedText.innerText = `${data.translated_text}`;
+                } else if (data.status === 'missing_translation') {
+                    translatedText.innerText = '当前文本暂无翻译，请点击 "scan new resource" 按钮生成翻译资源。';
                 } else {
                     translatedText.innerText = 'translate error。';
                 }
@@ -641,80 +622,6 @@
         window.addEventListener('beforeunload', function () {
             fetch('/stop', {method: 'POST'});
         });
-
-        function toggleColorSetting() {
-            colorSettingActive = !colorSettingActive;
-            if (colorSettingActive) {
-                colorSettingBtn.textContent = 'Color Setting (Active)';
-                makeWordsClickable();
-
-                if (isPlaying) {
-                    isPlaying = false;
-                    audioPlayer.pause();
-                    document.getElementById('playPauseBtn').textContent = '▶️';
-                }
-            } else {
-                colorSettingBtn.textContent = 'Color Setting';
-                saveColorChanges();
-            }
-        }
-
-        function toggleWordColor(span, wordIndex) {
-            const color = 'red';
-
-            if (span.classList.contains('red')) {
-                span.classList.remove('red');
-                span.style.color = '#333';
-                colorChanges.push({
-                    word_index: wordIndex,
-                    color: null
-                });
-            } else {
-                span.classList.add('red');
-                span.style.color = '#FF0000';
-                colorChanges.push({
-                    word_index: wordIndex,
-                    color: color
-                });
-            }
-        }
-
-        function saveColorChanges() {
-            if (colorChanges.length === 0) return;
-
-            fetch('/update_word_color', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    sentence_index: currentSentenceIndex,
-                    color_changes: colorChanges
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    console.log('All word colors updated successfully.');
-                    colorChanges = [];
-                    fetchCurrentText();
-                } else {
-                    alert(`Error: ${data.message}`);
-                }
-            })
-            .catch(error => {
-                console.error('Error updating word colors:', error);
-                alert('Failed to update word colors.');
-            });
-        }
-
-        function makeWordsClickable() {
-            const spans = currentText.querySelectorAll('span.highlight');
-            spans.forEach((span, index) => {
-                span.style.cursor = 'pointer';
-                span.onclick = () => toggleWordColor(span, index);
-            });
-        }
 
         function fetchCurrentText() {
             fetch('/get_current_text', {method: 'GET'})
