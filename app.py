@@ -1,4 +1,4 @@
-#app.py
+# app.py
 
 from flask import Flask, render_template, request, jsonify, send_from_directory, session, Response
 from flask_session import Session
@@ -432,6 +432,21 @@ def translate_text():
         return jsonify({'status': 'success', 'translated_text': translated_text})
     else:
         return jsonify({'status': 'missing_translation', 'translated_text': ''})
+
+# 新增的即时翻译单词路由，不使用缓存
+@app.route('/translate_word', methods=['POST'])
+def translate_word():
+    data = request.get_json()
+    word = data.get('text', '').strip()
+    if not word:
+        return jsonify({'status': 'error', 'message': 'No text provided.'}), 400
+    try:
+        # 使用 GoogleTranslator 直接翻译单词，不使用缓存
+        translated_word = GoogleTranslator(source='auto', target='zh-CN').translate(word)
+        return jsonify({'status': 'success', 'translated_text': translated_word})
+    except Exception as e:
+        print(f"Error translating word '{word}': {e}")
+        return jsonify({'status': 'error', 'message': 'Translation failed.'}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=80)

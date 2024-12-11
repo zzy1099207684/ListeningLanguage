@@ -19,6 +19,7 @@
             background-color: #fafafa;
             color: #333;
             text-align: center;
+            position: relative;
         }
 
         h1 {
@@ -180,6 +181,7 @@
         .highlight {
             cursor: pointer;
             transition: color 0.3s;
+            position: relative;
         }
 
         .highlight.red {
@@ -192,6 +194,21 @@
 
         .scan-options .scan-btn:hover:not(:disabled) {
             background-color: #e59400;
+        }
+
+        /* 单词悬浮翻译框样式 */
+        #word-tooltip {
+            position: absolute;
+            background: #fff;
+            border: 1px solid #ddd;
+            padding: 5px;
+            border-radius: 5px;
+            display: none;
+            max-width: 200px;
+            line-height: 1.5;
+            font-size: 14px;
+            z-index: 9999;
+            box-shadow: 0px 2px 8px rgba(0,0,0,0.2);
         }
     </style>
 </head>
@@ -238,6 +255,7 @@
         <p id="scan-progress" style="margin-top:10px;font-size:16px;color:#333;"></p>
     </div>
     <audio id="audio_player" controls></audio>
+    <div id="word-tooltip"></div>
     <script>
         let isPlaying = false;
         let playCount = 1;
@@ -251,6 +269,7 @@
         let playIntervalBtn = document.getElementById('play-interval-btn');
         let translatedText = document.getElementById('translated-text');
         let currentText = document.getElementById('current-text');
+        let wordTooltip = document.getElementById('word-tooltip');
 
         let toggleEnglish = document.getElementById('toggleEnglish');
         let toggleTranslation = document.getElementById('toggleTranslation');
@@ -357,6 +376,7 @@
             }
 
             translateText(text);
+            addWordClickEvents();
         }
 
         function translateText(text) {
@@ -621,6 +641,62 @@
 
         window.addEventListener('beforeunload', function () {
             fetch('/stop', {method: 'POST'});
+        });
+
+        // 给单词添加点击事件
+        function addWordClickEvents() {
+            const words = currentText.querySelectorAll('.highlight');
+            words.forEach(word => {
+                word.onclick = (e) => {
+                    e.stopPropagation();
+                    const text = word.textContent.trim();
+                    if (text) {
+                        fetch('/translate_word', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({text: text})
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            let translation = '暂无翻译';
+                            if (data.status === 'success') {
+                                translation = data.translated_text;
+                            } else if (data.status === 'missing_translation') {
+                                translation = '暂无翻译';
+                            }
+                            showWordTooltip(word, translation);
+                        })
+                        .catch(error => {
+                            console.error('Error translating word:', error);
+                            showWordTooltip(word, '翻译出错。');
+                        });
+                    }
+                };
+            });
+        }
+
+        // 显示翻译提示框
+        function showWordTooltip(wordElement, translation) {
+            wordTooltip.textContent = translation;
+            wordTooltip.style.display = 'block';
+
+            const rect = wordElement.getBoundingClientRect();
+            const bodyRect = document.body.getBoundingClientRect();
+
+            const left = rect.left - bodyRect.left + window.scrollX;
+            const top = rect.top - bodyRect.top + window.scrollY - wordTooltip.offsetHeight - 8;
+
+            wordTooltip.style.left = left + 'px';
+            wordTooltip.style.top = top + 'px';
+        }
+
+        // 点击空白隐藏提示框
+        document.addEventListener('click', (e) => {
+            if (!e.target.classList.contains('highlight')) {
+                wordTooltip.style.display = 'none';
+            }
         });
 
         function fetchCurrentText() {
