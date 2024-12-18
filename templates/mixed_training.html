@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mixed Training</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 10px;
+            background-color: #fafafa;
+            color: #333;
+            text-align: center;
+            position: relative;
+        }
+        h1 {
+            font-size: 24px;
+            color: #4A90E2;
+            margin-bottom: 20px;
+        }
+        #listen-mode-container {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        #remaining-count {
+            font-size: 16px;
+            color: #555;
+            margin-bottom: 20px;
+        }
+        #question-box {
+            font-size: 36px;
+            color: #444;
+            margin-top: 50px;
+            margin-bottom: 30px;
+            user-select: text;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            background: #fff;
+            max-width: 80%;
+            word-break: break-word;
+            cursor: pointer;
+        }
+        .controls {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .control-btn {
+            background-color: #4A90E2;
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0, 123, 255, 0.24), 0 1px 3px rgba(0, 0, 0, 0.08);
+            transition: background-color 0.3s, transform 0.3s, opacity 0.3s;
+        }
+        .control-btn:hover:not(:disabled) {
+            background-color: #357ABD;
+            transform: translateY(-2px);
+            box-shadow: 0 7px 14px rgba(0, 123, 255, 0.24), 0 3px 6px rgba(0, 0, 0, 0.08);
+        }
+        .control-btn:disabled {
+            background-color: #a0c4e8;
+            cursor: not-allowed;
+            opacity: 0.6;
+            transform: none;
+            box-shadow: none;
+        }
+        #other-text-box {
+            margin-bottom: 20px;
+            font-size: 24px;
+            color: #888;
+            font-style: italic;
+        }
+        #speaker-btn {
+            font-size: 24px;
+            cursor: pointer;
+            color: #4A90E2;
+        }
+        #speaker-btn:hover {
+            color: #357ABD;
+        }
+    </style>
+</head>
+<body>
+    <h1>combined training</h1>
+    <div id="listen-mode-container">
+        <label>
+            <input type="checkbox" id="listen-mode-checkbox">
+            listing
+        </label>
+        <label>
+            <input type="checkbox" id="super-mixed-checkbox">
+            super mix
+        </label>
+    </div>
+    <div id="remaining-count">remaining quantity: </div>
+    <div id="question-box">Loading...</div>
+    <div id="other-text-box"></div>
+    <div class="controls">
+        <button class="control-btn" id="remember-btn">remembered</button>
+        <button class="control-btn" id="forget-btn">unremembered</button>
+    </div>
+    <div class="controls">
+        <button class="control-btn" id="return-main-btn">main page</button>
+    </div>
+    <script>
+        let currentShowText = '';
+        let currentLang = '';
+        let currentAudioUrl = '';
+        let phase = 'question';
+
+        const listenModeCheckbox = document.getElementById('listen-mode-checkbox');
+        const superMixedCheckbox = document.getElementById('super-mixed-checkbox');
+        const questionBox = document.getElementById('question-box');
+        const otherTextBox = document.getElementById('other-text-box');
+        const rememberBtn = document.getElementById('remember-btn');
+        const forgetBtn = document.getElementById('forget-btn');
+
+        function loadNextSentence() {
+            const superMixedParam = superMixedCheckbox.checked ? '1' : '0';
+            fetch('/mixed_training_check_finish')
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'finished') {
+                    window.location.href = '/mixed_training_all_done';
+                    return;
+                } else {
+                    fetch('/mixed_training_next?super_mixed=' + superMixedParam)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.status === 'done') {
+                            window.location.href = '/mixed_training_all_done';
+                        } else if (data.status === 'success') {
+                            currentShowText = data.show_text;
+                            currentLang = data.lang;
+                            currentAudioUrl = data.audio_url || '';
+                            otherTextBox.innerText = '';
+                            phase = 'question';
+                            rememberBtn.style.display = 'inline-block';
+                            forgetBtn.style.display = 'inline-block';
+                            document.getElementById('remaining-count').innerText = 'remaining quantity: ' + data.remaining_count;
+
+                            updateQuestionDisplay();
+                        }
+                    })
+                }
+            })
+        }
+
+        function updateQuestionDisplay() {
+            if (listenModeCheckbox.checked && currentLang === 'en') {
+                questionBox.innerHTML = '<span id="speaker-btn">🔊</span>';
+                const speakerBtn = document.getElementById('speaker-btn');
+                speakerBtn.onclick = () => {
+                    if (currentAudioUrl) {
+                        const audio = new Audio(currentAudioUrl);
+                        audio.play();
+                    }
+                };
+            } else {
+                questionBox.innerText = currentShowText;
+            }
+        }
+
+        function markChoice(choice) {
+            fetch('/mixed_training_mark', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({show_text: currentShowText, choice: choice, lang: currentLang})
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    otherTextBox.innerText = data.other_text;
+                    rememberBtn.style.display = 'none';
+                    forgetBtn.style.display = 'none';
+                    phase = 'answer';
+                    if (choice === 'unknown') {
+                        fetch('/mixed_training_update_initial', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({show_text: currentShowText, lang: currentLang, choice: choice})
+                        }).then(() => {
+                            loadNextSentence();
+                        })
+                    } else {
+                        loadNextSentence();
+                    }
+                }
+            })
+        }
+
+        questionBox.onclick = () => {
+            if (phase === 'question') {
+                fetch('/translate', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({text: currentShowText})
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        otherTextBox.innerText = data.translated_text;
+                    } else {
+                        otherTextBox.innerText = '无翻译可用。';
+                    }
+                })
+            }
+        };
+
+        rememberBtn.onclick = () => {
+            if (phase === 'question') {
+                markChoice('known');
+            }
+        }
+
+        forgetBtn.onclick = () => {
+            if (phase === 'question') {
+                markChoice('unknown');
+            }
+        }
+
+        document.getElementById('return-main-btn').onclick = () => {
+            window.location.href = '/language';
+        }
+
+        listenModeCheckbox.onchange = () => {
+            if (phase === 'question') {
+                updateQuestionDisplay();
+            }
+        };
+
+        window.onload = loadNextSentence;
+    </script>
+</body>
+</html>

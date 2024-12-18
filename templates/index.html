@@ -1,5 +1,3 @@
-<!--index.html-->
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -196,7 +194,6 @@
             background-color: #e59400;
         }
 
-        /* 单词悬浮翻译框样式 */
         #word-tooltip {
             position: absolute;
             background: #fff;
@@ -217,10 +214,12 @@
         <p id="current-text">Text will appear here...</p>
         <p id="translated-text">translate will appear here</p>
     </div>
+    <!-- 将所有播放控制按钮和随机/顺序按钮放在同一个 .controls 容器中 -->
     <div class="controls">
         <button class="control-btn" id="previousBtn" onclick="previousLine()">⏮</button>
         <button class="control-btn" id="playPauseBtn" onclick="togglePlayPause()">▶️</button>
         <button class="control-btn" id="nextBtn" onclick="nextLine()">⏭</button>
+        <button class="control-btn" id="toggleModeBtn" onclick="togglePlayMode()">sequential</button>
     </div>
     <div class="play-options">
         <div>
@@ -244,9 +243,7 @@
     </div>
     <div class="controls">
         <button class="control-btn" onclick="window.location.href='/file/edit'">Edit File</button>
-    </div>
-    <div class="controls">
-        <button class="control-btn" id="toggleModeBtn" onclick="togglePlayMode()">sequential</button>
+        <button class="control-btn" onclick="window.location.href='/mixed_training_setup'">combined training</button>
     </div>
     <div class="scan-options">
         <button class="scan-btn" id="scanTranslationAndAudio" onclick="scanTranslationAndAudio()">scan new resource</button>
@@ -643,7 +640,6 @@
             fetch('/stop', {method: 'POST'});
         });
 
-        // 给单词添加点击事件
         function addWordClickEvents() {
             const words = currentText.querySelectorAll('.highlight');
             words.forEach(word => {
@@ -677,7 +673,6 @@
             });
         }
 
-        // 显示翻译提示框
         function showWordTooltip(wordElement, translation) {
             wordTooltip.textContent = translation;
             wordTooltip.style.display = 'block';
@@ -692,7 +687,6 @@
             wordTooltip.style.top = top + 'px';
         }
 
-        // 点击空白隐藏提示框
         document.addEventListener('click', (e) => {
             if (!e.target.classList.contains('highlight')) {
                 wordTooltip.style.display = 'none';
