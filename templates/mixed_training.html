@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mixed Training</title>
+    <title>Combined Training</title>
     <style>
         body {
             display: flex;
@@ -48,7 +48,21 @@
             max-width: 80%;
             word-break: break-word;
             cursor: pointer;
+            position: relative;
         }
+        /* 调整小喇叭位置 (top: -10px) */
+        #small-speaker-btn {
+            font-size: 24px;
+            cursor: pointer;
+            color: #4A90E2;
+            position: absolute;
+            top: -10px;
+            right: 10px;
+        }
+        #small-speaker-btn:hover {
+            color: #357ABD;
+        }
+
         .controls {
             display: flex;
             gap: 20px;
@@ -113,6 +127,10 @@
     <div class="controls">
         <button class="control-btn" id="remember-btn">remembered</button>
         <button class="control-btn" id="forget-btn">unremembered</button>
+        <!-- 新增揭秘按钮 -->
+        <button class="control-btn" id="reveal-btn">reveal</button>
+        <!-- next按钮，初始隐藏 -->
+        <button class="control-btn" id="next-btn" style="display:none;">next</button>
     </div>
     <div class="controls">
         <button class="control-btn" id="return-main-btn">main page</button>
@@ -129,6 +147,8 @@
         const otherTextBox = document.getElementById('other-text-box');
         const rememberBtn = document.getElementById('remember-btn');
         const forgetBtn = document.getElementById('forget-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const revealBtn = document.getElementById('reveal-btn');
 
         function loadNextSentence() {
             const superMixedParam = superMixedCheckbox.checked ? '1' : '0';
@@ -152,9 +172,17 @@
                             phase = 'question';
                             rememberBtn.style.display = 'inline-block';
                             forgetBtn.style.display = 'inline-block';
+                            revealBtn.style.display = 'inline-block';
+                            nextBtn.style.display = 'none';
                             document.getElementById('remaining-count').innerText = 'remaining quantity: ' + data.remaining_count;
 
                             updateQuestionDisplay();
+
+                            // 如果有音频并且未选择listing模式，则自动播放一次
+                            if (currentAudioUrl && !listenModeCheckbox.checked) {
+                                const audio = new Audio(currentAudioUrl);
+                                audio.play();
+                            }
                         }
                     })
                 }
@@ -162,6 +190,22 @@
         }
 
         function updateQuestionDisplay() {
+            // 默认显示文字
+            questionBox.innerText = currentShowText;
+
+            // 如果未选中listing且有audio_url，则显示小喇叭
+            if (currentAudioUrl && !listenModeCheckbox.checked) {
+                questionBox.innerHTML = currentShowText + '<span id="small-speaker-btn">🔊</span>';
+                const smallSpeakerBtn = document.getElementById('small-speaker-btn');
+                smallSpeakerBtn.onclick = () => {
+                    if (currentAudioUrl) {
+                        const audio = new Audio(currentAudioUrl);
+                        audio.play();
+                    }
+                };
+            }
+
+            // 若选中listing且当前语言是英文，则显示大喇叭按钮（覆盖前面的小喇叭）
             if (listenModeCheckbox.checked && currentLang === 'en') {
                 questionBox.innerHTML = '<span id="speaker-btn">🔊</span>';
                 const speakerBtn = document.getElementById('speaker-btn');
@@ -171,8 +215,6 @@
                         audio.play();
                     }
                 };
-            } else {
-                questionBox.innerText = currentShowText;
             }
         }
 
@@ -188,23 +230,15 @@
                     otherTextBox.innerText = data.other_text;
                     rememberBtn.style.display = 'none';
                     forgetBtn.style.display = 'none';
+                    revealBtn.style.display = 'none';
                     phase = 'answer';
-                    if (choice === 'unknown') {
-                        fetch('/mixed_training_update_initial', {
-                            method: 'POST',
-                            headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({show_text: currentShowText, lang: currentLang, choice: choice})
-                        }).then(() => {
-                            loadNextSentence();
-                        })
-                    } else {
-                        loadNextSentence();
-                    }
+                    nextBtn.style.display = 'inline-block';
                 }
             })
         }
 
-        questionBox.onclick = () => {
+        // 揭秘按钮点击显示对应文本（翻译或对应另一种语言）
+        revealBtn.onclick = () => {
             if (phase === 'question') {
                 fetch('/translate', {
                     method: 'POST',
@@ -231,6 +265,13 @@
         forgetBtn.onclick = () => {
             if (phase === 'question') {
                 markChoice('unknown');
+            }
+        }
+
+        // next按钮点击后才载入下一句
+        nextBtn.onclick = () => {
+            if (phase === 'answer') {
+                loadNextSentence();
             }
         }
 

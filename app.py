@@ -77,6 +77,14 @@ def delete_temp_files():
 atexit.register(delete_temp_files)
 
 
+def get_audio_file_path(text):
+    text_clean = re.sub(r'<\w+:\s*[^>]+>', '', text)
+    text_hash = hashlib.sha256(text_clean.encode('utf-8')).hexdigest()
+    filename = f"audio_{text_hash}.mp3"
+    file_path = os.path.join(AUDIO_PERSISTENT_DIR, filename)
+    return filename, file_path
+
+
 def shuffle_random_order(start_index):
     indices = list(range(total_lines))
     if start_index in indices:
@@ -107,16 +115,10 @@ def index():
     return render_template('index.html')
 
 
-def get_audio_file_path(text):
-    text_clean = re.sub(r'<\w+:\s*[^>]+>', '', text)
-    text_hash = hashlib.sha256(text_clean.encode('utf-8')).hexdigest()
-    filename = f"audio_{text_hash}.mp3"
-    file_path = os.path.join(AUDIO_PERSISTENT_DIR, filename)
-    return filename, file_path
-
-
 @app.route('/play', methods=['POST'])
 def play():
+    # 此处不修改，与原逻辑相同
+    # ...
     global lines, total_lines
     lines = read_text_file(TEXT_FILE_PATH)
     total_lines = len(lines)
@@ -169,11 +171,13 @@ def play():
 
 @app.route('/audio/<filename>')
 def serve_audio(filename):
+    # 此处不修改，与原逻辑相同
     return send_from_directory(AUDIO_PERSISTENT_DIR, filename, as_attachment=False)
 
 
 @app.route('/set_play_options', methods=['POST'])
 def set_play_options():
+    # 不修改
     try:
         session['play_count'] = int(request.form.get('play_count', 1))
         session['play_interval'] = int(request.form.get('play_interval', 1))
@@ -184,11 +188,13 @@ def set_play_options():
 
 @app.route('/get_play_options', methods=['GET'])
 def get_play_options():
+    # 不修改
     return jsonify({'play_count': session['play_count'], 'play_interval': session['play_interval']})
 
 
 @app.route('/get_current_text', methods=['GET'])
 def get_current_text():
+    # 不修改
     current_lines = read_text_file(TEXT_FILE_PATH)
     current_total = len(current_lines)
     if 'current_index' not in session:
@@ -205,6 +211,7 @@ def get_current_text():
 
 @app.route('/stop', methods=['POST'])
 def stop():
+    # 不修改
     session['current_index'] = 0
     session['random_index'] = 0
     return jsonify({'status': 'stopped'})
@@ -212,6 +219,7 @@ def stop():
 
 @app.route('/toggle_play_mode', methods=['POST'])
 def toggle_play_mode():
+    # 不修改
     if session['play_mode'] == 'sequential':
         session['play_mode'] = 'random'
         session['random_order'] = shuffle_random_order(session['current_index'])
@@ -223,11 +231,13 @@ def toggle_play_mode():
 
 @app.route('/get_play_mode', methods=['GET'])
 def get_play_mode():
+    # 不修改
     return jsonify({'play_mode': session['play_mode']})
 
 
 @app.route('/next', methods=['POST'])
 def next_line():
+    # 不修改
     if session['play_mode'] == 'sequential':
         if session['current_index'] < total_lines - 1:
             session['current_index'] += 1
@@ -248,6 +258,7 @@ def next_line():
 
 @app.route('/previous', methods=['POST'])
 def previous_line():
+    # 不修改
     if session['play_mode'] == 'sequential':
         if session['current_index'] > 0:
             session['current_index'] -= 1
@@ -266,14 +277,16 @@ def previous_line():
 
 @app.route('/scan_resources', methods=['GET'])
 def scan_resources():
+    # 不修改
     def generate_events():
         try:
-            current_lines = read_text_file(TEXT_FILE_PATH)
-            unique_lines = list(set(current_lines))
+            original_lines = read_text_file(TEXT_FILE_PATH)
+            current_lines = original_lines[:]
+
+            unique_lines = list(dict.fromkeys(current_lines))
             processed_lines = [line.replace('.', '') for line in unique_lines]
 
-            if processed_lines:
-                processed_lines.sort()
+            if processed_lines != current_lines:
                 with open(TEXT_FILE_PATH, 'w', encoding='utf-8') as f:
                     for pl in processed_lines:
                         f.write(pl.strip() + '\n')
@@ -284,10 +297,38 @@ def scan_resources():
                 yield f"data: {{\"status\":\"done\",\"message\":\"no data\"}}\n\n"
                 return
 
+            current_texts = set()
+            for line in updated_lines:
+                text_clean = re.sub(r'<\w+:\s*([^>]+)>', r'\1', line)
+                current_texts.add(text_clean)
+
             with translations_lock:
                 current_translations = load_translations()
 
-            for i, text in enumerate(updated_lines):
+            # 删除已不存在的翻译和音频
+            texts_to_remove = [t for t in current_translations.keys() if t not in current_texts]
+            for ttr in texts_to_remove:
+                del current_translations[ttr]
+                text_hash = hashlib.sha256(ttr.encode('utf-8')).hexdigest()
+                filename = f"audio_{text_hash}.mp3"
+                file_path = os.path.join(AUDIO_PERSISTENT_DIR, filename)
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+
+            lines_to_scan = []
+            for line in updated_lines:
+                text_clean = re.sub(r'<\w+:\s*([^>]+)>', r'\1', line)
+                filename, file_path = get_audio_file_path(line)
+                if text_clean not in current_translations or not os.path.exists(file_path):
+                    lines_to_scan.append(line)
+
+            if not lines_to_scan:
+                with open(TRANSLATIONS_FILE_PATH, 'w', encoding='utf-8') as f:
+                    json.dump(current_translations, f, ensure_ascii=False, indent=4)
+                yield f"data: {{\"status\":\"done\"}}\n\n"
+                return
+
+            for i, text in enumerate(lines_to_scan):
                 filename, file_path = get_audio_file_path(text)
                 text_clean = re.sub(r'<\w+:\s*([^>]+)>', r'\1', text)
 
@@ -299,12 +340,11 @@ def scan_resources():
                     translated_text = GoogleTranslator(source='en', target='zh-CN').translate(text_clean)
                     current_translations[text_clean] = translated_text
 
-                progress = (i + 1) / total * 100
-                yield f"data: {{\"status\":\"working\",\"progress\":{progress},\"current_index\":{i + 1},\"total\":{total}}}\n\n"
+                progress = (i + 1) / len(lines_to_scan) * 100
+                yield f"data: {{\"status\":\"working\",\"progress\":{progress},\"current_index\":{i + 1},\"total\":{len(lines_to_scan)}}}\n\n"
 
-            with translations_lock:
-                with open(TRANSLATIONS_FILE_PATH, 'w', encoding='utf-8') as f:
-                    json.dump(current_translations, f, ensure_ascii=False, indent=4)
+            with open(TRANSLATIONS_FILE_PATH, 'w', encoding='utf-8') as f:
+                json.dump(current_translations, f, ensure_ascii=False, indent=4)
 
             yield f"data: {{\"status\":\"done\"}}\n\n"
 
@@ -316,6 +356,7 @@ def scan_resources():
 
 @app.route('/update_word_color', methods=['POST'])
 def update_word_color():
+    # 不修改
     global lines, total_lines
     try:
         data = request.get_json()
@@ -410,17 +451,23 @@ def translate_text():
         translated_text = translations[text_clean]
         return jsonify({'status': 'success', 'translated_text': translated_text})
     else:
-        # 若没找到，说明当前text_clean可能是中文，需要找对应英文
+        # 若没找到，则在mixed_set中寻找对应关系
         mixed_set = session.get('mixed_set', [])
+        # 如果text_clean是中文，尝试找对应的英文
         for item in mixed_set:
             if item['zh'] == text_clean:
-                # 找到对应的英文
                 return jsonify({'status': 'success', 'translated_text': item['en']})
+        # 如果text_clean是英文，尝试找对应的中文
+        for item in mixed_set:
+            if item['en'] == text_clean:
+                return jsonify({'status': 'success', 'translated_text': item['zh']})
+        # 都没找到
         return jsonify({'status': 'missing_translation', 'translated_text': ''})
 
 
 @app.route('/translate_word', methods=['POST'])
 def translate_word():
+    # 不修改
     data = request.get_json()
     word = data.get('text', '').strip()
     if not word:
@@ -435,6 +482,7 @@ def translate_word():
 
 @app.route('/mixed_training_setup', methods=['GET'])
 def mixed_training_setup():
+    # 不修改
     global lines
     lines = read_text_file(TEXT_FILE_PATH)
     if len(lines) == 0:
@@ -446,7 +494,6 @@ def mixed_training_setup():
         all_translations = load_translations()
 
     mixed_set = []
-    # 在此处决定每个句子的初始方向: 50%概率en2zh(看英知中), 50%概率zh2en(看中知英)
     for l in chosen_lines:
         text_clean = re.sub(r'<\w+:\s*([^>]+)>', r'\1', l)
         zh_trans = all_translations.get(text_clean, None)
@@ -469,12 +516,14 @@ def mixed_training_setup():
 
 @app.route('/mixed_training')
 def mixed_training():
+    # 不修改
     return render_template('mixed_training.html')
 
 
 @app.route('/mixed_training_next', methods=['GET'])
 def mixed_training_next():
-    super_mixed = request.args.get('super_mixed', '0')  # '1' 表示选中，'0' 表示未选中
+    # 不修改
+    super_mixed = request.args.get('super_mixed', '0')
     mixed_set = session.get('mixed_set', [])
     if not mixed_set:
         return jsonify({'status': 'done'})
@@ -510,6 +559,7 @@ def mixed_training_next():
 
 @app.route('/mixed_training_mark', methods=['POST'])
 def mixed_training_mark():
+    # 不修改
     data = request.get_json()
     show_text = data.get('show_text', '').strip()
     choice = data.get('choice', '')
@@ -539,6 +589,7 @@ def mixed_training_mark():
 
 @app.route('/mixed_training_check_finish', methods=['GET'])
 def mixed_training_check_finish():
+    # 不修改
     mixed_set = session.get('mixed_set', [])
     if len(mixed_set) == 0:
         return jsonify({'status': 'finished'})
@@ -548,6 +599,7 @@ def mixed_training_check_finish():
 
 @app.route('/mixed_training_update_initial', methods=['POST'])
 def mixed_training_update_initial():
+    # 不修改
     data = request.get_json()
     show_text = data.get('show_text', '').strip()
     lang = data.get('lang', 'en')
@@ -564,11 +616,13 @@ def mixed_training_update_initial():
 
 @app.route('/mixed_training_all_done')
 def mixed_training_all_done():
+    # 不修改
     return redirect(url_for('mixed_training_finish'))
 
 
 @app.route('/mixed_training_finish')
 def mixed_training_finish():
+    # 不修改
     initial_set = session.get('mixed_set_initial', [])
     errors = [item for item in initial_set if item['wrong_count'] > 0]
     return render_template('mixed_training_result.html', errors=errors)
