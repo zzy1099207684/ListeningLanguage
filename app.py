@@ -1,5 +1,3 @@
-# app.py
-
 from flask import Flask, render_template, request, jsonify, send_from_directory, session, Response, redirect, url_for
 from flask_session import Session
 from gtts import gTTS
@@ -28,6 +26,11 @@ Session(app)
 
 TEXT_FILE_PATH = 'store.txt'
 
+
+@app.route('/restart', methods=['GET'])
+def restart():
+    os.system("sudo systemctl restart your_project_service")
+    return "Project restarted successfully!", 200
 
 def read_text_file(file_path):
     if not os.path.exists(file_path):
@@ -117,8 +120,6 @@ def index():
 
 @app.route('/play', methods=['POST'])
 def play():
-    # 此处不修改，与原逻辑相同
-    # ...
     global lines, total_lines
     lines = read_text_file(TEXT_FILE_PATH)
     total_lines = len(lines)
@@ -171,13 +172,11 @@ def play():
 
 @app.route('/audio/<filename>')
 def serve_audio(filename):
-    # 此处不修改，与原逻辑相同
     return send_from_directory(AUDIO_PERSISTENT_DIR, filename, as_attachment=False)
 
 
 @app.route('/set_play_options', methods=['POST'])
 def set_play_options():
-    # 不修改
     try:
         session['play_count'] = int(request.form.get('play_count', 1))
         session['play_interval'] = int(request.form.get('play_interval', 1))
@@ -188,13 +187,11 @@ def set_play_options():
 
 @app.route('/get_play_options', methods=['GET'])
 def get_play_options():
-    # 不修改
     return jsonify({'play_count': session['play_count'], 'play_interval': session['play_interval']})
 
 
 @app.route('/get_current_text', methods=['GET'])
 def get_current_text():
-    # 不修改
     current_lines = read_text_file(TEXT_FILE_PATH)
     current_total = len(current_lines)
     if 'current_index' not in session:
@@ -211,7 +208,6 @@ def get_current_text():
 
 @app.route('/stop', methods=['POST'])
 def stop():
-    # 不修改
     session['current_index'] = 0
     session['random_index'] = 0
     return jsonify({'status': 'stopped'})
@@ -219,7 +215,6 @@ def stop():
 
 @app.route('/toggle_play_mode', methods=['POST'])
 def toggle_play_mode():
-    # 不修改
     if session['play_mode'] == 'sequential':
         session['play_mode'] = 'random'
         session['random_order'] = shuffle_random_order(session['current_index'])
@@ -231,13 +226,11 @@ def toggle_play_mode():
 
 @app.route('/get_play_mode', methods=['GET'])
 def get_play_mode():
-    # 不修改
     return jsonify({'play_mode': session['play_mode']})
 
 
 @app.route('/next', methods=['POST'])
 def next_line():
-    # 不修改
     if session['play_mode'] == 'sequential':
         if session['current_index'] < total_lines - 1:
             session['current_index'] += 1
@@ -258,7 +251,6 @@ def next_line():
 
 @app.route('/previous', methods=['POST'])
 def previous_line():
-    # 不修改
     if session['play_mode'] == 'sequential':
         if session['current_index'] > 0:
             session['current_index'] -= 1
@@ -277,7 +269,6 @@ def previous_line():
 
 @app.route('/scan_resources', methods=['GET'])
 def scan_resources():
-    # 不修改
     def generate_events():
         try:
             original_lines = read_text_file(TEXT_FILE_PATH)
@@ -356,7 +347,6 @@ def scan_resources():
 
 @app.route('/update_word_color', methods=['POST'])
 def update_word_color():
-    # 不修改
     global lines, total_lines
     try:
         data = request.get_json()
@@ -467,7 +457,6 @@ def translate_text():
 
 @app.route('/translate_word', methods=['POST'])
 def translate_word():
-    # 不修改
     data = request.get_json()
     word = data.get('text', '').strip()
     if not word:
@@ -482,7 +471,6 @@ def translate_word():
 
 @app.route('/mixed_training_setup', methods=['GET'])
 def mixed_training_setup():
-    # 不修改
     global lines
     lines = read_text_file(TEXT_FILE_PATH)
     if len(lines) == 0:
@@ -516,13 +504,16 @@ def mixed_training_setup():
 
 @app.route('/mixed_training')
 def mixed_training():
-    # 不修改
     return render_template('mixed_training.html')
 
 
 @app.route('/mixed_training_next', methods=['GET'])
 def mixed_training_next():
-    # 不修改
+    """
+    修改点：
+    - 原逻辑：只有 show_lang == 'en' 才返回英文音频
+    - 现逻辑：总是返回英文音频，用于点击按钮后播放
+    """
     super_mixed = request.args.get('super_mixed', '0')
     mixed_set = session.get('mixed_set', [])
     if not mixed_set:
@@ -546,20 +537,19 @@ def mixed_training_next():
         'remaining_count': remaining_count
     }
 
-    if show_lang == 'en':
-        text_clean = sentence['en']
-        filename, file_path = get_audio_file_path(text_clean)
-        if not os.path.exists(file_path):
-            tts = gTTS(text=text_clean, lang='en', tld='com')
-            tts.save(file_path)
-        response['audio_url'] = f'/audio/{filename}'
+    # **无论 show_lang 是否为en，都始终生成并返回英文音频URL**
+    text_clean = sentence['en']
+    filename, file_path = get_audio_file_path(text_clean)
+    if not os.path.exists(file_path):
+        tts = gTTS(text=text_clean, lang='en', tld='com')
+        tts.save(file_path)
+    response['audio_url'] = f'/audio/{filename}'
 
     return jsonify(response)
 
 
 @app.route('/mixed_training_mark', methods=['POST'])
 def mixed_training_mark():
-    # 不修改
     data = request.get_json()
     show_text = data.get('show_text', '').strip()
     choice = data.get('choice', '')
@@ -589,7 +579,6 @@ def mixed_training_mark():
 
 @app.route('/mixed_training_check_finish', methods=['GET'])
 def mixed_training_check_finish():
-    # 不修改
     mixed_set = session.get('mixed_set', [])
     if len(mixed_set) == 0:
         return jsonify({'status': 'finished'})
@@ -599,7 +588,6 @@ def mixed_training_check_finish():
 
 @app.route('/mixed_training_update_initial', methods=['POST'])
 def mixed_training_update_initial():
-    # 不修改
     data = request.get_json()
     show_text = data.get('show_text', '').strip()
     lang = data.get('lang', 'en')
@@ -616,13 +604,11 @@ def mixed_training_update_initial():
 
 @app.route('/mixed_training_all_done')
 def mixed_training_all_done():
-    # 不修改
     return redirect(url_for('mixed_training_finish'))
 
 
 @app.route('/mixed_training_finish')
 def mixed_training_finish():
-    # 不修改
     initial_set = session.get('mixed_set_initial', [])
     errors = [item for item in initial_set if item['wrong_count'] > 0]
     return render_template('mixed_training_result.html', errors=errors)

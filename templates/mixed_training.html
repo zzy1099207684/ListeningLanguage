@@ -141,6 +141,24 @@
         let currentAudioUrl = '';
         let phase = 'question';
 
+        // 全局音频对象 + 停止播放函数
+        let currentAudio = null;
+        function stopAudio() {
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio.currentTime = 0;
+                currentAudio = null;
+            }
+        }
+
+        function playAudio() {
+            stopAudio();
+            if (currentAudioUrl) {
+                currentAudio = new Audio(currentAudioUrl);
+                currentAudio.play();
+            }
+        }
+
         const listenModeCheckbox = document.getElementById('listen-mode-checkbox');
         const superMixedCheckbox = document.getElementById('super-mixed-checkbox');
         const questionBox = document.getElementById('question-box');
@@ -178,10 +196,14 @@
 
                             updateQuestionDisplay();
 
-                            // 如果有音频并且未选择listing模式，则自动播放一次
-                            if (currentAudioUrl && !listenModeCheckbox.checked) {
-                                const audio = new Audio(currentAudioUrl);
-                                audio.play();
+                            /*
+                              ==============================================
+                              新增逻辑：若展示的是store.txt里的文本（lang===en），
+                              则自动播放一次对应音频；若是翻译文本(zh)则不播放
+                              ==============================================
+                            */
+                            if (currentLang === 'en') {
+                                playAudio();
                             }
                         }
                     })
@@ -193,27 +215,25 @@
             // 默认显示文字
             questionBox.innerText = currentShowText;
 
-            // 如果未选中listing且有audio_url，则显示小喇叭
-            if (currentAudioUrl && !listenModeCheckbox.checked) {
+            // 如果未选中listing且是英文，显示小喇叭
+            if (currentAudioUrl && !listenModeCheckbox.checked && currentLang === 'en') {
                 questionBox.innerHTML = currentShowText + '<span id="small-speaker-btn">🔊</span>';
                 const smallSpeakerBtn = document.getElementById('small-speaker-btn');
                 smallSpeakerBtn.onclick = () => {
-                    if (currentAudioUrl) {
-                        const audio = new Audio(currentAudioUrl);
-                        audio.play();
-                    }
+                    stopAudio();
+                    currentAudio = new Audio(currentAudioUrl);
+                    currentAudio.play();
                 };
             }
 
-            // 若选中listing且当前语言是英文，则显示大喇叭按钮（覆盖前面的小喇叭）
+            // 若选中listing且是英文，则显示大喇叭
             if (listenModeCheckbox.checked && currentLang === 'en') {
                 questionBox.innerHTML = '<span id="speaker-btn">🔊</span>';
                 const speakerBtn = document.getElementById('speaker-btn');
                 speakerBtn.onclick = () => {
-                    if (currentAudioUrl) {
-                        const audio = new Audio(currentAudioUrl);
-                        audio.play();
-                    }
+                    stopAudio();
+                    currentAudio = new Audio(currentAudioUrl);
+                    currentAudio.play();
                 };
             }
         }
@@ -237,8 +257,9 @@
             })
         }
 
-        // 揭秘按钮点击显示对应文本（翻译或对应另一种语言）
+        // reveal按钮点击：先停止音频，再获取翻译，然后播放新音频
         revealBtn.onclick = () => {
+            stopAudio();
             if (phase === 'question') {
                 fetch('/translate', {
                     method: 'POST',
@@ -252,34 +273,44 @@
                     } else {
                         otherTextBox.innerText = '无翻译可用。';
                     }
+                    playAudio();
                 })
             }
         };
 
+        // remembered 按钮点击：先停止音频，然后标记，再播放
         rememberBtn.onclick = () => {
+            stopAudio();
             if (phase === 'question') {
                 markChoice('known');
+                playAudio();
             }
         }
 
+        // unremembered 按钮点击：先停止音频，然后标记，再播放
         forgetBtn.onclick = () => {
+            stopAudio();
             if (phase === 'question') {
                 markChoice('unknown');
+                playAudio();
             }
         }
 
         // next按钮点击后才载入下一句
         nextBtn.onclick = () => {
+            stopAudio();
             if (phase === 'answer') {
                 loadNextSentence();
             }
         }
 
         document.getElementById('return-main-btn').onclick = () => {
+            stopAudio();
             window.location.href = '/language';
         }
 
         listenModeCheckbox.onchange = () => {
+            stopAudio();
             if (phase === 'question') {
                 updateQuestionDisplay();
             }
