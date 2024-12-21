@@ -1,24 +1,35 @@
 # app.py
 
+import atexit
+import hashlib
+import os
+import random
+import re
+import tempfile
+import threading
+
+from deep_translator import GoogleTranslator
 from flask import Flask, render_template, request, jsonify, send_from_directory, session, Response, redirect, url_for
 from flask_session import Session
 from gtts import gTTS
-import tempfile
-import atexit
-from edit_file import edit_file_blueprint
 
-import os
-import random
-import hashlib
-import json
-from deep_translator import GoogleTranslator
-import threading
-import re
+from dao.store_dao import select_all_store
+from dao.translations_dao import select_all_translations, delete_translation
+from dao.translations_dao import upsert_translation
+from edit_file import edit_file_blueprint  # 蓝图
+# services
+from services.app_service import (
+    get_audio_file_path,
+    read_text_file_by_group,
+    shuffle_random_order
+)
 
+##################################
+# Flask 与 Session 配置
+##################################
 app = Flask(__name__)
 app.register_blueprint(edit_file_blueprint, url_prefix='/file')
 
-# 配置 Flask-Session
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_FILE_DIR'] = os.path.join(tempfile.gettempdir(), 'flask_sessions')
 app.config['SESSION_PERMANENT'] = False
@@ -26,172 +37,18 @@ app.config['SECRET_KEY'] = 'safe_safe_safe'
 
 Session(app)
 
-TEXT_FILE_PATH = 'store.txt'
-
-
-#####################################
-# 新增：分组解析相关
-#####################################
-def parse_store_file(file_path):
-    """
-    按照需求，将 store.txt 解析成:
-    {
-      "组名1": ["本组的若干行", ...],
-      "组名2": [...],
-      ...
-    }
-    若文件为空或无有效分组，则返回空字典。
-    """
-    if not os.path.exists(file_path):
-        return {}
-
-    groups = {}
-    current_group_name = None
-    current_lines = []
-
-    with open(file_path, 'r', encoding='utf-8') as f:
-        raw_lines = [l.rstrip('\n') for l in f]
-
-    # 用一个空行(或到达文件末尾)来区分下一组
-    def flush_group(gname, glines):
-        if gname and glines:
-            # 去除空行
-            filtered = [x.strip() for x in glines if x.strip()]
-            if filtered:
-                groups[gname] = filtered
-
-    for line in raw_lines:
-        # 如果这一行本身是空行，说明是一个分组的边界
-        if not line.strip():
-            # 如果当前分组名存在，则把当前收集到的行写入
-            flush_group(current_group_name, current_lines)
-            # 重置
-            current_group_name = None
-            current_lines = []
-        else:
-            # 如果当前还没有分组名，则把这行当做分组名
-            if current_group_name is None:
-                current_group_name = line.strip()
-            else:
-                # 否则当做该组内的内容
-                current_lines.append(line)
-
-    # 文件末尾可能没有空行，这里再 flush 一次
-    flush_group(current_group_name, current_lines)
-
-    return groups
-
-def read_text_file(file_path):
-    """
-    保持原先的按行读取逻辑（不分组），
-    给旧功能或无分组需求的逻辑使用。
-    """
-    if not os.path.exists(file_path):
-        return []
-    with open(file_path, 'r', encoding='utf-8') as file:
-        lines = file.readlines()
-    return [line.strip() for line in lines if line.strip()]
-
-def read_text_file_by_group(file_path, selected_group):
-    """
-    根据 selected_group 来读取对应组的行，如果未选或组名不存在则返回全部行
-    """
-    all_lines = read_text_file(file_path)  # 原方式所有行
-    group_map = parse_store_file(file_path)
-    if not selected_group or selected_group not in group_map:
-        # 如果没有选组或组名不在文件内，则返回全部行
-        return all_lines
-    else:
-        return group_map[selected_group]
-
-
-#####################################
-# 以上为分组解析函数
-#####################################
-
-lines = read_text_file(TEXT_FILE_PATH)
-total_lines = len(lines)
-
-temp_files = []
-AUDIO_ROOT_DIR = os.path.join(tempfile.gettempdir(), 'flask_audio')
-os.makedirs(AUDIO_ROOT_DIR, exist_ok=True)
 AUDIO_PERSISTENT_DIR = 'audio_files'
 os.makedirs(AUDIO_PERSISTENT_DIR, exist_ok=True)
 
-TRANSLATIONS_FILE_PATH = 'translations.json'
 translations_lock = threading.Lock()
 
 
-def load_translations():
-    if os.path.exists(TRANSLATIONS_FILE_PATH):
-        with open(TRANSLATIONS_FILE_PATH, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    else:
-        return {}
-
-
-translations = load_translations()
-
-
 def delete_temp_files():
-    try:
-        for session_dir in os.listdir(AUDIO_ROOT_DIR):
-            session_path = os.path.join(AUDIO_ROOT_DIR, session_dir)
-            if os.path.isdir(session_path):
-                for filename in os.listdir(session_path):
-                    file_path = os.path.join(session_path, filename)
-                    os.remove(file_path)
-                os.rmdir(session_path)
-    except Exception as e:
-        print(f"Error deleting temp audio files: {e}")
+    # 清理临时音频文件（视需要可实现，暂为空）
+    pass
 
 
 atexit.register(delete_temp_files)
-
-
-def get_audio_file_path(text):
-    text_clean = re.sub(r'<\w+:\s*[^>]+>', '', text)
-    text_hash = hashlib.sha256(text_clean.encode('utf-8')).hexdigest()
-    filename = f"audio_{text_hash}.mp3"
-    file_path = os.path.join(AUDIO_PERSISTENT_DIR, filename)
-    return filename, file_path
-
-
-def shuffle_random_order(start_index, line_count):
-    indices = list(range(line_count))
-    if start_index in indices:
-        indices.remove(start_index)
-    random.shuffle(indices)
-    return [start_index] + indices
-
-
-@app.route('/restart', methods=['GET'])
-def restart():
-    os.system("sudo systemctl restart your_project_service")
-    return "Project restarted successfully!", 200
-
-
-#####################################
-# 新增：获取分组列表的接口
-#####################################
-@app.route('/get_groups', methods=['GET'])
-def get_groups():
-    group_map = parse_store_file(TEXT_FILE_PATH)
-    group_names = list(group_map.keys())
-    # 按照需求可以再加一个选项“All”之类的
-    return jsonify({'groups': group_names})
-
-#####################################
-# 新增：设置主页播放所选 group
-#####################################
-@app.route('/set_group', methods=['GET'])
-def set_group():
-    group_name = request.args.get('group', '')
-    if group_name:
-        session['selected_group'] = group_name
-    else:
-        session['selected_group'] = ''
-    return redirect(url_for('index'))
 
 
 @app.before_request
@@ -208,9 +65,14 @@ def initialize_session_vars():
         session['random_order'] = []
     if 'random_index' not in session:
         session['random_index'] = 0
-    # 新增：主页所选 group
     if 'selected_group' not in session:
         session['selected_group'] = ''
+
+
+@app.route('/restart', methods=['GET'])
+def restart():
+    os.system("sudo systemctl restart your_project_service")
+    return "Project restarted successfully!", 200
 
 
 @app.route('/language')
@@ -218,26 +80,50 @@ def index():
     return render_template('index.html')
 
 
+@app.route('/get_groups', methods=['GET'])
+def get_groups():
+    """
+    将 store 表分组情况返回给前端
+    """
+    rows = select_all_store()
+    group_map = {}
+    for (sid, gname, line_text) in rows:
+        g = gname if gname else ""
+        if g not in group_map:
+            group_map[g] = []
+        group_map[g].append(line_text)
+    group_names = list(group_map.keys())
+    return jsonify({'groups': group_names})
+
+
+@app.route('/set_group', methods=['GET'])
+def set_group():
+    group_name = request.args.get('group', '')
+    session['selected_group'] = group_name or ''
+    return redirect(url_for('index'))
+
+
+##################################
+# 播放逻辑
+##################################
 @app.route('/play', methods=['POST'])
 def play():
-    # 每次 play 时，按当前选的组名重新读取行
     selected_group = session.get('selected_group', '')
-    current_lines = read_text_file_by_group(TEXT_FILE_PATH, selected_group)
+    current_lines = read_text_file_by_group(selected_group)
     total_lines_current = len(current_lines)
+    if total_lines_current == 0:
+        return jsonify({'status': 'no_more_text'})
 
     if session['play_mode'] == 'sequential':
         if session['current_index'] >= total_lines_current:
             session['current_index'] = 0
-        if total_lines_current == 0:
-            return jsonify({'status': 'no_more_text'})
         line_index = session['current_index']
         text = current_lines[line_index]
         filename, file_path = get_audio_file_path(text)
         if not os.path.exists(file_path):
-            text_clean = re.sub(r'<\w+:\s*([^>]+)>', r'\1', text)
+            text_clean = text
             tts = gTTS(text=text_clean, lang='en', tld='com')
             tts.save(file_path)
-            temp_files.append(filename)
         response = {
             'status': 'success',
             'audio_url': f'/audio/{filename}',
@@ -248,13 +134,11 @@ def play():
 
     elif session['play_mode'] == 'random':
         if not session['random_order']:
-            # 生成新的 random_order
             session['random_order'] = list(range(total_lines_current))
             random.shuffle(session['random_order'])
             session['random_index'] = 0
 
         if session['random_index'] >= total_lines_current:
-            # 重新洗牌
             first_idx = session['random_order'][-1]
             session['random_order'] = shuffle_random_order(first_idx, total_lines_current)
             session['random_index'] = 0
@@ -263,10 +147,9 @@ def play():
         text = current_lines[line_index]
         filename, file_path = get_audio_file_path(text)
         if not os.path.exists(file_path):
-            text_clean = re.sub(r'<\w+:\s*([^>]+)>', r'\1', text)
+            text_clean = text
             tts = gTTS(text=text_clean, lang='en', tld='com')
             tts.save(file_path)
-            temp_files.append(filename)
         response = {
             'status': 'success',
             'audio_url': f'/audio/{filename}',
@@ -300,10 +183,8 @@ def get_play_options():
 @app.route('/get_current_text', methods=['GET'])
 def get_current_text():
     selected_group = session.get('selected_group', '')
-    current_lines = read_text_file_by_group(TEXT_FILE_PATH, selected_group)
+    current_lines = read_text_file_by_group(selected_group)
     current_total = len(current_lines)
-    if 'current_index' not in session:
-        session['current_index'] = 0
     if 0 <= session['current_index'] < current_total:
         return jsonify({
             'status': 'success',
@@ -324,7 +205,7 @@ def stop():
 @app.route('/toggle_play_mode', methods=['POST'])
 def toggle_play_mode():
     selected_group = session.get('selected_group', '')
-    current_lines = read_text_file_by_group(TEXT_FILE_PATH, selected_group)
+    current_lines = read_text_file_by_group(selected_group)
     line_count = len(current_lines)
 
     if session['play_mode'] == 'sequential':
@@ -348,7 +229,7 @@ def get_play_mode():
 @app.route('/next', methods=['POST'])
 def next_line():
     selected_group = session.get('selected_group', '')
-    current_lines = read_text_file_by_group(TEXT_FILE_PATH, selected_group)
+    current_lines = read_text_file_by_group(selected_group)
     total_lines_current = len(current_lines)
 
     if session['play_mode'] == 'sequential':
@@ -357,6 +238,7 @@ def next_line():
         else:
             session['current_index'] = 0
         return jsonify({'status': 'success', 'current_index': session['current_index']})
+
     elif session['play_mode'] == 'random':
         if not session['random_order']:
             session['random_order'] = list(range(total_lines_current))
@@ -378,7 +260,7 @@ def next_line():
 @app.route('/previous', methods=['POST'])
 def previous_line():
     selected_group = session.get('selected_group', '')
-    current_lines = read_text_file_by_group(TEXT_FILE_PATH, selected_group)
+    current_lines = read_text_file_by_group(selected_group)
     total_lines_current = len(current_lines)
 
     if session['play_mode'] == 'sequential':
@@ -397,61 +279,80 @@ def previous_line():
         return jsonify({'status': 'error', 'message': 'Unknown play mode.'})
 
 
+##################################
+# 新增：/translate 路由，用于主页获取翻译
+##################################
+@app.route('/translate', methods=['POST'])
+def translate_text():
+    """
+    前端 index.html 调用此接口，用传入的整句文本 text，
+    从 translations 表里查找对应翻译并返回。
+    如果找不到翻译则返回 'missing_translation'。
+    """
+    try:
+        data = request.get_json()
+        text = data.get('text', '')
+        # 将类似 <red: ...> 样式标签去掉，只保留文字
+        text_clean = re.sub(r'<(\w+):\s*([^>]+)>', r'\2', text)
+        with translations_lock:
+            current_translations = select_all_translations()
+        # 在 translations 里查找
+        if text_clean in current_translations:
+            return jsonify({'status': 'success', 'translated_text': current_translations[text_clean]})
+        else:
+            return jsonify({'status': 'missing_translation'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)})
+
+
+##################################
+# 扫描资源(翻译 & TTS)逻辑
+##################################
 @app.route('/scan_resources', methods=['GET'])
 def scan_resources():
     def generate_events():
         try:
-            original_lines = read_text_file(TEXT_FILE_PATH)
-            current_lines = original_lines[:]
+            rows = select_all_store()  # [(id, group_name, line_text), ...]
+            all_lines = [r[2] for r in rows]
 
-            unique_lines = list(dict.fromkeys(current_lines))
-            processed_lines = [line.replace('.', '') for line in unique_lines]
-
-            if processed_lines != current_lines:
-                with open(TEXT_FILE_PATH, 'w', encoding='utf-8') as f:
-                    for pl in processed_lines:
-                        f.write(pl.strip() + '\n')
-
-            updated_lines = read_text_file(TEXT_FILE_PATH)
-            total = len(updated_lines)
-            if total == 0:
+            if not all_lines:
                 yield f"data: {{\"status\":\"done\",\"message\":\"no data\"}}\n\n"
                 return
 
+            with translations_lock:
+                current_translations = select_all_translations()
+
             current_texts = set()
-            for line in updated_lines:
-                text_clean = re.sub(r'<\w+:\s*([^>]+)>', r'\1', line)
+            for line in all_lines:
+                text_clean = re.sub(r'<\\w+:\\s*([^>]+)>', r'\\1', line)
                 current_texts.add(text_clean)
 
-            with translations_lock:
-                current_translations = load_translations()
-
-            # 删除已不存在的翻译和音频
+            # 删除不在数据库中的翻译 & 音频
             texts_to_remove = [t for t in current_translations.keys() if t not in current_texts]
             for ttr in texts_to_remove:
-                del current_translations[ttr]
+                delete_translation(ttr)
                 text_hash = hashlib.sha256(ttr.encode('utf-8')).hexdigest()
                 filename = f"audio_{text_hash}.mp3"
                 file_path = os.path.join(AUDIO_PERSISTENT_DIR, filename)
                 if os.path.exists(file_path):
                     os.remove(file_path)
 
+            # 检查哪些行需要TTS/翻译
             lines_to_scan = []
-            for line in updated_lines:
-                text_clean = re.sub(r'<\w+:\s*([^>]+)>', r'\1', line)
+            for line in all_lines:
                 filename, file_path = get_audio_file_path(line)
+                text_clean = re.sub(r'<\\w+:\\s*([^>]+)>', r'\\1', line)
                 if text_clean not in current_translations or not os.path.exists(file_path):
                     lines_to_scan.append(line)
 
             if not lines_to_scan:
-                with open(TRANSLATIONS_FILE_PATH, 'w', encoding='utf-8') as f:
-                    json.dump(current_translations, f, ensure_ascii=False, indent=4)
                 yield f"data: {{\"status\":\"done\"}}\n\n"
                 return
 
+            i = 0
             for i, text in enumerate(lines_to_scan):
                 filename, file_path = get_audio_file_path(text)
-                text_clean = re.sub(r'<\w+:\s*([^>]+)>', r'\1', text)
+                text_clean = text
 
                 if not os.path.exists(file_path):
                     tts = gTTS(text=text_clean, lang='en', tld='com')
@@ -459,13 +360,11 @@ def scan_resources():
 
                 if text_clean not in current_translations:
                     translated_text = GoogleTranslator(source='en', target='zh-CN').translate(text_clean)
+                    upsert_translation(text_clean, translated_text)
                     current_translations[text_clean] = translated_text
 
                 progress = (i + 1) / len(lines_to_scan) * 100
                 yield f"data: {{\"status\":\"working\",\"progress\":{progress},\"current_index\":{i + 1},\"total\":{len(lines_to_scan)}}}\n\n"
-
-            with open(TRANSLATIONS_FILE_PATH, 'w', encoding='utf-8') as f:
-                json.dump(current_translations, f, ensure_ascii=False, indent=4)
 
             yield f"data: {{\"status\":\"done\"}}\n\n"
 
@@ -475,160 +374,33 @@ def scan_resources():
     return Response(generate_events(), mimetype='text/event-stream')
 
 
-@app.route('/update_word_color', methods=['POST'])
-def update_word_color():
-    global lines, total_lines
-    try:
-        data = request.get_json()
-        sentence_index = int(data.get('sentence_index'))
-        color_changes = data.get('color_changes', [])
-
-        if not isinstance(color_changes, list):
-            color_changes = [{
-                'word_index': int(data.get('word_index')),
-                'color': data.get('color')
-            }]
-
-        if not os.path.exists(TEXT_FILE_PATH):
-            return jsonify({'status': 'error', 'message': 'Text file does not exist.'}), 400
-
-        with open(TEXT_FILE_PATH, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-
-        if sentence_index >= len(lines):
-            return jsonify({'status': 'error', 'message': 'Sentence index out of range.'}), 400
-
-        line = lines[sentence_index].strip()
-
-        word_red = []
-        words = []
-        pattern = re.compile(r'<red:\s*([^>]+)>')
-        last = 0
-        for match in pattern.finditer(line):
-            start, end = match.span()
-            if start > last:
-                plain_text = line[last:start].strip()
-                if plain_text:
-                    plain_words = plain_text.split()
-                    words.extend(plain_words)
-                    word_red.extend([False] * len(plain_words))
-            red_text = match.group(1).strip()
-            if red_text:
-                red_words = red_text.split()
-                words.extend(red_words)
-                word_red.extend([True] * len(red_words))
-            last = end
-        if last < len(line):
-            plain_text = line[last:].strip()
-            if plain_text:
-                plain_words = plain_text.split()
-                words.extend(plain_words)
-                word_red.extend([False] * len(plain_words))
-
-        for change in color_changes:
-            word_index = int(change.get('word_index'))
-            color = change.get('color')
-            if word_index < 0 or word_index >= len(words):
-                return jsonify({'status': 'error', 'message': f'Word index {word_index} out of range.'}), 400
-
-            if color is not None:
-                if not isinstance(color, str) or color.lower() != 'red':
-                    return jsonify({'status': 'error', 'message': 'Only red color is supported.'}), 400
-                word_red[word_index] = True
-            else:
-                word_red[word_index] = False
-
-        modified_line = ''
-        for i, word in enumerate(words):
-            if word_red[i]:
-                modified_line += f'<red: {word}> '
-            else:
-                modified_line += f'{word} '
-        modified_line = modified_line.strip()
-
-        lines[sentence_index] = modified_line + '\n'
-
-        with open(TEXT_FILE_PATH, 'w', encoding='utf-8') as f:
-            f.writelines(lines)
-
-        lines = read_text_file(TEXT_FILE_PATH)
-        total_lines = len(lines)
-
-        return jsonify({'status': 'success'})
-    except Exception as e:
-        print(f"Error updating word color: {e}")
-        return jsonify({'status': 'error', 'message': 'Could not update word color.'}), 500
-
-
-@app.route('/translate', methods=['POST'])
-def translate_text():
-    data = request.get_json()
-    text = data.get('text', '')
-    text_clean = re.sub(r'<\w+:\s*([^>]+)>', r'\1', text)
-    with translations_lock:
-        translations = load_translations()
-    if text_clean in translations:
-        translated_text = translations[text_clean]
-        return jsonify({'status': 'success', 'translated_text': translated_text})
-    else:
-        # 若没找到，则在mixed_set中寻找对应关系
-        mixed_set = session.get('mixed_set', [])
-        # 如果text_clean是中文，尝试找对应的英文
-        for item in mixed_set:
-            if item['zh'] == text_clean:
-                return jsonify({'status': 'success', 'translated_text': item['en']})
-        # 如果text_clean是英文，尝试找对应的中文
-        for item in mixed_set:
-            if item['en'] == text_clean:
-                return jsonify({'status': 'success', 'translated_text': item['zh']})
-        # 都没找到
-        return jsonify({'status': 'missing_translation', 'translated_text': ''})
-
-
-@app.route('/translate_word', methods=['POST'])
-def translate_word():
-    data = request.get_json()
-    word = data.get('text', '').strip()
-    if not word:
-        return jsonify({'status': 'error', 'message': 'No text provided.'}), 400
-    try:
-        translated_word = GoogleTranslator(source='auto', target='zh-CN').translate(word)
-        return jsonify({'status': 'success', 'translated_text': translated_word})
-    except Exception as e:
-        print(f"Error translating word '{word}': {e}")
-        return jsonify({'status': 'error', 'message': 'Translation failed.'}), 500
-
-
+##################################
+# Mixed training 等路由
+# (保持原先逻辑不变)
+##################################
 @app.route('/mixed_training_setup', methods=['GET'])
 def mixed_training_setup():
-    """
-    新增支持：如果 URL 参数里带了 group=xxx，则只抽取该组的内容进行 combined training
-    """
     group_name = request.args.get('group', '').strip()
     if group_name:
-        # 从指定组里获取行
-        lines_in_group = read_text_file_by_group(TEXT_FILE_PATH, group_name)
-        lines_in_group = list(set(lines_in_group))  # 去重
+        lines_in_group = read_text_file_by_group(group_name)
     else:
-        # 仍保留原逻辑（全部）
-        lines_in_group = read_text_file(TEXT_FILE_PATH)
-        lines_in_group = list(set(lines_in_group))
-
+        rows = select_all_store()
+        lines_in_group = [r[2] for r in rows]
+    lines_in_group = list(set(lines_in_group))
     if len(lines_in_group) == 0:
         return redirect(url_for('index'))
+
+    all_translations = select_all_translations()
+    import random
     sample_count = min(10, len(lines_in_group))
     chosen_lines = random.sample(lines_in_group, sample_count)
 
-    with translations_lock:
-        all_translations = load_translations()
-
     mixed_set = []
     for l in chosen_lines:
-        text_clean = re.sub(r'<\w+:\s*([^>]+)>', r'\1', l)
+        text_clean = re.sub(r'<\\w+:\\s*([^>]+)>', r'\\1', l)
         zh_trans = all_translations.get(text_clean, None)
         if zh_trans is None:
             zh_trans = "未找到翻译，请先进行资源扫描（scan new resource）以生成翻译。"
-
         direction = random.choice(['en2zh', 'zh2en'])
         mixed_set.append({
             'en': text_clean,
@@ -639,7 +411,6 @@ def mixed_training_setup():
 
     session['mixed_set_initial'] = [dict(item) for item in mixed_set]
     session['mixed_set'] = mixed_set
-
     return redirect(url_for('mixed_training'))
 
 
@@ -655,6 +426,7 @@ def mixed_training_next():
     if not mixed_set:
         return jsonify({'status': 'done'})
 
+    import random
     sentence = random.choice(mixed_set)
     remaining_count = len(mixed_set)
 
@@ -673,7 +445,6 @@ def mixed_training_next():
         'remaining_count': remaining_count
     }
 
-    # 总是返回英文音频
     text_clean = sentence['en']
     filename, file_path = get_audio_file_path(text_clean)
     if not os.path.exists(file_path):
