@@ -1,5 +1,5 @@
 # edit_file.py
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 import math
 import os
 import hashlib
@@ -20,6 +20,41 @@ def read_text_file(file_path):
         lines = file.readlines()
     # **修改**：跳过空行
     return [line.strip() for line in lines if line.strip()]
+
+#####################################
+# 新增：分组解析
+#####################################
+def parse_store_file(file_path):
+    if not os.path.exists(file_path):
+        return {}
+    groups = {}
+    current_group_name = None
+    current_lines = []
+
+    with open(file_path, 'r', encoding='utf-8') as f:
+        raw_lines = [l.rstrip('\n') for l in f]
+
+    def flush_group(gname, glines):
+        if gname and glines:
+            filtered = [x.strip() for x in glines if x.strip()]
+            if filtered:
+                groups[gname] = filtered
+
+    for line in raw_lines:
+        if not line.strip():
+            flush_group(current_group_name, current_lines)
+            current_group_name = None
+            current_lines = []
+        else:
+            if current_group_name is None:
+                current_group_name = line.strip()
+            else:
+                current_lines.append(line)
+
+    flush_group(current_group_name, current_lines)
+    return groups
+#####################################
+
 
 def write_text_file(file_path, lines):
     with open(file_path, 'w', encoding='utf-8') as file:
@@ -58,6 +93,12 @@ def edit():
     current_page = request.args.get('page', '1')
     search_query = request.args.get('search', '').strip()
 
+    # 新增：解析组并获取所有组名
+    group_map = parse_store_file(TEXT_FILE_PATH)
+    all_group_names = list(group_map.keys())
+    # 获取多选选中的组
+    selected_groups = request.args.getlist('groups')
+
     try:
         current_page = int(current_page)
         if current_page < 1:
@@ -65,11 +106,23 @@ def edit():
     except ValueError:
         current_page = 1
 
-    if search_query:
-        # Filter lines based on search query (case-insensitive)
-        filtered_lines = [line for line in lines if search_query.lower() in line.lower()]
+    # 若选中若干组，则只展示这些组下的内容
+    grouped_lines = []
+    if selected_groups:
+        for g in selected_groups:
+            grouped_lines.extend(group_map.get(g, []))
+        # 去重
+        grouped_lines = list(dict.fromkeys(grouped_lines))
+        # 这里将所选组的内容与原本 lines 做一次交集（考虑旧代码中行号的对应）
+        filtered_lines_by_group = [l for l in lines if l in grouped_lines]
     else:
-        filtered_lines = lines
+        filtered_lines_by_group = lines
+
+    # 然后再对它们做搜索过滤
+    if search_query:
+        filtered_lines = [line for line in filtered_lines_by_group if search_query.lower() in line.lower()]
+    else:
+        filtered_lines = filtered_lines_by_group
 
     per_page = 4
     total_pages = math.ceil(len(filtered_lines) / per_page) if per_page else 1
@@ -101,13 +154,10 @@ def edit():
             try:
                 line_number = int(line_number)
                 if 0 < line_number <= len(lines):
-                    # 获取要删除的文本
                     text = lines[line_number - 1]
                     del lines[line_number - 1]
                     write_text_file(TEXT_FILE_PATH, lines)
-                    # 删除对应的音频文件
                     delete_audio_file(text)
-                    # 删除对应的翻译
                     delete_translation(text)
                     flash(f'第 {line_number} 行已删除。', 'success')
                 else:
@@ -125,7 +175,6 @@ def edit():
                         texts_to_delete.append(text)
                         del lines[line_number - 1]
                 write_text_file(TEXT_FILE_PATH, lines)
-                # 删除对应的音频文件和翻译
                 for text in texts_to_delete:
                     delete_audio_file(text)
                     delete_translation(text)
@@ -139,14 +188,11 @@ def edit():
             try:
                 line_number = int(line_number)
                 if 0 < line_number <= len(lines) and updated_text:
-                    # 获取旧的文本
                     old_text = lines[line_number - 1]
                     lines[line_number - 1] = updated_text
                     write_text_file(TEXT_FILE_PATH, lines)
-                    # 删除旧的音频文件和翻译
                     delete_audio_file(old_text)
                     delete_translation(old_text)
-                    # Update translation
                     with translations_lock:
                         translations = load_translations()
                         translations[updated_text] = updated_translation
@@ -156,10 +202,14 @@ def edit():
                     flash('行号或更新内容无效。', 'error')
             except (ValueError, TypeError):
                 flash('行号无效。', 'error')
-        return redirect(url_for('edit_file.edit', page=current_page, search=search_query))
+        return redirect(url_for('edit_file.edit', page=current_page, search=search_query, groups=selected_groups))
 
     return render_template('edit.html',
                            lines=lines_with_translations,
                            current_page=current_page,
                            total_pages=total_pages,
-                           search_query=search_query)
+                           search_query=search_query,
+                           group_names=all_group_names,
+                           selected_groups=selected_groups)
+
+

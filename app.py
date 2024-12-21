@@ -29,18 +29,85 @@ Session(app)
 TEXT_FILE_PATH = 'store.txt'
 
 
-@app.route('/restart', methods=['GET'])
-def restart():
-    os.system("sudo systemctl restart your_project_service")
-    return "Project restarted successfully!", 200
+#####################################
+# 新增：分组解析相关
+#####################################
+def parse_store_file(file_path):
+    """
+    按照需求，将 store.txt 解析成:
+    {
+      "组名1": ["本组的若干行", ...],
+      "组名2": [...],
+      ...
+    }
+    若文件为空或无有效分组，则返回空字典。
+    """
+    if not os.path.exists(file_path):
+        return {}
+
+    groups = {}
+    current_group_name = None
+    current_lines = []
+
+    with open(file_path, 'r', encoding='utf-8') as f:
+        raw_lines = [l.rstrip('\n') for l in f]
+
+    # 用一个空行(或到达文件末尾)来区分下一组
+    def flush_group(gname, glines):
+        if gname and glines:
+            # 去除空行
+            filtered = [x.strip() for x in glines if x.strip()]
+            if filtered:
+                groups[gname] = filtered
+
+    for line in raw_lines:
+        # 如果这一行本身是空行，说明是一个分组的边界
+        if not line.strip():
+            # 如果当前分组名存在，则把当前收集到的行写入
+            flush_group(current_group_name, current_lines)
+            # 重置
+            current_group_name = None
+            current_lines = []
+        else:
+            # 如果当前还没有分组名，则把这行当做分组名
+            if current_group_name is None:
+                current_group_name = line.strip()
+            else:
+                # 否则当做该组内的内容
+                current_lines.append(line)
+
+    # 文件末尾可能没有空行，这里再 flush 一次
+    flush_group(current_group_name, current_lines)
+
+    return groups
 
 def read_text_file(file_path):
+    """
+    保持原先的按行读取逻辑（不分组），
+    给旧功能或无分组需求的逻辑使用。
+    """
     if not os.path.exists(file_path):
         return []
     with open(file_path, 'r', encoding='utf-8') as file:
         lines = file.readlines()
     return [line.strip() for line in lines if line.strip()]
 
+def read_text_file_by_group(file_path, selected_group):
+    """
+    根据 selected_group 来读取对应组的行，如果未选或组名不存在则返回全部行
+    """
+    all_lines = read_text_file(file_path)  # 原方式所有行
+    group_map = parse_store_file(file_path)
+    if not selected_group or selected_group not in group_map:
+        # 如果没有选组或组名不在文件内，则返回全部行
+        return all_lines
+    else:
+        return group_map[selected_group]
+
+
+#####################################
+# 以上为分组解析函数
+#####################################
 
 lines = read_text_file(TEXT_FILE_PATH)
 total_lines = len(lines)
@@ -90,12 +157,41 @@ def get_audio_file_path(text):
     return filename, file_path
 
 
-def shuffle_random_order(start_index):
-    indices = list(range(total_lines))
+def shuffle_random_order(start_index, line_count):
+    indices = list(range(line_count))
     if start_index in indices:
         indices.remove(start_index)
     random.shuffle(indices)
     return [start_index] + indices
+
+
+@app.route('/restart', methods=['GET'])
+def restart():
+    os.system("sudo systemctl restart your_project_service")
+    return "Project restarted successfully!", 200
+
+
+#####################################
+# 新增：获取分组列表的接口
+#####################################
+@app.route('/get_groups', methods=['GET'])
+def get_groups():
+    group_map = parse_store_file(TEXT_FILE_PATH)
+    group_names = list(group_map.keys())
+    # 按照需求可以再加一个选项“All”之类的
+    return jsonify({'groups': group_names})
+
+#####################################
+# 新增：设置主页播放所选 group
+#####################################
+@app.route('/set_group', methods=['GET'])
+def set_group():
+    group_name = request.args.get('group', '')
+    if group_name:
+        session['selected_group'] = group_name
+    else:
+        session['selected_group'] = ''
+    return redirect(url_for('index'))
 
 
 @app.before_request
@@ -109,10 +205,12 @@ def initialize_session_vars():
     if 'play_mode' not in session:
         session['play_mode'] = 'sequential'
     if 'random_order' not in session:
-        session['random_order'] = list(range(total_lines))
-        random.shuffle(session['random_order'])
+        session['random_order'] = []
     if 'random_index' not in session:
         session['random_index'] = 0
+    # 新增：主页所选 group
+    if 'selected_group' not in session:
+        session['selected_group'] = ''
 
 
 @app.route('/language')
@@ -122,15 +220,18 @@ def index():
 
 @app.route('/play', methods=['POST'])
 def play():
-    global lines, total_lines
-    lines = read_text_file(TEXT_FILE_PATH)
-    total_lines = len(lines)
+    # 每次 play 时，按当前选的组名重新读取行
+    selected_group = session.get('selected_group', '')
+    current_lines = read_text_file_by_group(TEXT_FILE_PATH, selected_group)
+    total_lines_current = len(current_lines)
 
     if session['play_mode'] == 'sequential':
-        if session['current_index'] >= total_lines:
+        if session['current_index'] >= total_lines_current:
             session['current_index'] = 0
+        if total_lines_current == 0:
+            return jsonify({'status': 'no_more_text'})
         line_index = session['current_index']
-        text = lines[line_index]
+        text = current_lines[line_index]
         filename, file_path = get_audio_file_path(text)
         if not os.path.exists(file_path):
             text_clean = re.sub(r'<\w+:\s*([^>]+)>', r'\1', text)
@@ -146,15 +247,20 @@ def play():
         return jsonify(response)
 
     elif session['play_mode'] == 'random':
-        if session['random_index'] >= total_lines:
-            if session['random_order']:
-                session['random_order'] = shuffle_random_order(session['random_order'][0])
-            else:
-                session['random_order'] = shuffle_random_order(0)
+        if not session['random_order']:
+            # 生成新的 random_order
+            session['random_order'] = list(range(total_lines_current))
+            random.shuffle(session['random_order'])
+            session['random_index'] = 0
+
+        if session['random_index'] >= total_lines_current:
+            # 重新洗牌
+            first_idx = session['random_order'][-1]
+            session['random_order'] = shuffle_random_order(first_idx, total_lines_current)
             session['random_index'] = 0
 
         line_index = session['random_order'][session['random_index']]
-        text = lines[line_index]
+        text = current_lines[line_index]
         filename, file_path = get_audio_file_path(text)
         if not os.path.exists(file_path):
             text_clean = re.sub(r'<\w+:\s*([^>]+)>', r'\1', text)
@@ -167,7 +273,6 @@ def play():
             'text': text,
             'current_index': line_index
         }
-
         session['random_index'] += 1
         return jsonify(response)
 
@@ -194,7 +299,8 @@ def get_play_options():
 
 @app.route('/get_current_text', methods=['GET'])
 def get_current_text():
-    current_lines = read_text_file(TEXT_FILE_PATH)
+    selected_group = session.get('selected_group', '')
+    current_lines = read_text_file_by_group(TEXT_FILE_PATH, selected_group)
     current_total = len(current_lines)
     if 'current_index' not in session:
         session['current_index'] = 0
@@ -217,9 +323,17 @@ def stop():
 
 @app.route('/toggle_play_mode', methods=['POST'])
 def toggle_play_mode():
+    selected_group = session.get('selected_group', '')
+    current_lines = read_text_file_by_group(TEXT_FILE_PATH, selected_group)
+    line_count = len(current_lines)
+
     if session['play_mode'] == 'sequential':
         session['play_mode'] = 'random'
-        session['random_order'] = shuffle_random_order(session['current_index'])
+        if line_count > 0:
+            current_idx = session.get('current_index', 0)
+            if current_idx >= line_count:
+                current_idx = 0
+            session['random_order'] = shuffle_random_order(current_idx, line_count)
         session['random_index'] = 0
     else:
         session['play_mode'] = 'sequential'
@@ -233,18 +347,28 @@ def get_play_mode():
 
 @app.route('/next', methods=['POST'])
 def next_line():
+    selected_group = session.get('selected_group', '')
+    current_lines = read_text_file_by_group(TEXT_FILE_PATH, selected_group)
+    total_lines_current = len(current_lines)
+
     if session['play_mode'] == 'sequential':
-        if session['current_index'] < total_lines - 1:
+        if session['current_index'] < total_lines_current - 1:
             session['current_index'] += 1
         else:
             session['current_index'] = 0
         return jsonify({'status': 'success', 'current_index': session['current_index']})
     elif session['play_mode'] == 'random':
-        if session['random_index'] < total_lines - 1:
+        if not session['random_order']:
+            session['random_order'] = list(range(total_lines_current))
+            random.shuffle(session['random_order'])
+            session['random_index'] = 0
+
+        if session['random_index'] < total_lines_current - 1:
             session['random_index'] += 1
             return jsonify({'status': 'success', 'current_index': session['random_order'][session['random_index']]})
         else:
-            session['random_order'] = shuffle_random_order(session['random_order'][session['random_index']])
+            last_idx = session['random_order'][-1]
+            session['random_order'] = shuffle_random_order(last_idx, total_lines_current)
             session['random_index'] = 0
             return jsonify({'status': 'success', 'current_index': session['random_order'][session['random_index']]})
     else:
@@ -253,6 +377,10 @@ def next_line():
 
 @app.route('/previous', methods=['POST'])
 def previous_line():
+    selected_group = session.get('selected_group', '')
+    current_lines = read_text_file_by_group(TEXT_FILE_PATH, selected_group)
+    total_lines_current = len(current_lines)
+
     if session['play_mode'] == 'sequential':
         if session['current_index'] > 0:
             session['current_index'] -= 1
@@ -473,12 +601,23 @@ def translate_word():
 
 @app.route('/mixed_training_setup', methods=['GET'])
 def mixed_training_setup():
-    global lines
-    lines = read_text_file(TEXT_FILE_PATH)
-    if len(lines) == 0:
+    """
+    新增支持：如果 URL 参数里带了 group=xxx，则只抽取该组的内容进行 combined training
+    """
+    group_name = request.args.get('group', '').strip()
+    if group_name:
+        # 从指定组里获取行
+        lines_in_group = read_text_file_by_group(TEXT_FILE_PATH, group_name)
+        lines_in_group = list(set(lines_in_group))  # 去重
+    else:
+        # 仍保留原逻辑（全部）
+        lines_in_group = read_text_file(TEXT_FILE_PATH)
+        lines_in_group = list(set(lines_in_group))
+
+    if len(lines_in_group) == 0:
         return redirect(url_for('index'))
-    sample_count = min(10, len(lines))
-    chosen_lines = random.sample(lines, sample_count)
+    sample_count = min(10, len(lines_in_group))
+    chosen_lines = random.sample(lines_in_group, sample_count)
 
     with translations_lock:
         all_translations = load_translations()
@@ -511,11 +650,6 @@ def mixed_training():
 
 @app.route('/mixed_training_next', methods=['GET'])
 def mixed_training_next():
-    """
-    修改点：
-    - 原逻辑：只有 show_lang == 'en' 才返回英文音频
-    - 现逻辑：总是返回英文音频，用于点击按钮后播放
-    """
     super_mixed = request.args.get('super_mixed', '0')
     mixed_set = session.get('mixed_set', [])
     if not mixed_set:
@@ -539,7 +673,7 @@ def mixed_training_next():
         'remaining_count': remaining_count
     }
 
-    # **无论 show_lang 是否为en，都始终生成并返回英文音频URL**
+    # 总是返回英文音频
     text_clean = sentence['en']
     filename, file_path = get_audio_file_path(text_clean)
     if not os.path.exists(file_path):

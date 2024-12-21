@@ -208,9 +208,24 @@
             z-index: 9999;
             box-shadow: 0px 2px 8px rgba(0,0,0,0.2);
         }
+
+        /* 新增: groupSelector 样式 */
+        #groupSelector {
+            font-size: 14px;
+            padding: 6px;
+            margin-top: 5px;
+        }
     </style>
 </head>
 <body>
+    <!-- 新增：顶部下拉框选择组 -->
+    <h1>Reading</h1>
+    <div>
+        <select id="groupSelector">
+            <option value="">All Groups</option>
+        </select>
+    </div>
+
     <div id="text-container">
         <p id="current-text">Text will appear here...</p>
         <p id="translated-text">translate will appear here</p>
@@ -271,6 +286,27 @@
 
         let toggleEnglish = document.getElementById('toggleEnglish');
         let toggleTranslation = document.getElementById('toggleTranslation');
+
+        // 新增: 动态获取 group 列表, 填充下拉框
+        const groupSelector = document.getElementById('groupSelector');
+        fetch('/get_groups')
+            .then(res => res.json())
+            .then(data => {
+                const groups = data.groups || [];
+                groups.forEach(g => {
+                    const opt = document.createElement('option');
+                    opt.value = g;
+                    opt.textContent = g;
+                    groupSelector.appendChild(opt);
+                });
+            })
+            .catch(err => console.error(err));
+
+        // 新增: 当选中某个 group 后, 立即请求 set_group
+        groupSelector.addEventListener('change', () => {
+            const g = groupSelector.value;
+            window.location.href = '/set_group?group=' + encodeURIComponent(g);
+        });
 
         fetch('/get_play_mode')
             .then(response => response.json())
@@ -489,6 +525,7 @@
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'options_set') {
+                    // ok
                 } else if (data.status === 'error') {
                     alert(`error: ${data.message}`);
                 }

@@ -1,3 +1,4 @@
+GROUP 1
 Running out of drinking water is quite disturbing for them
 The lake is the source of the river
 The shop assistant always had a smile on her face
@@ -205,5 +206,10 @@ The theater quickly emptied when the performance ended
 This is a book about economics
 They are appreciating the artwork
 His dream is to travel around the world
+
+
+GROUP 2
 trumpet
 corresponding
+magenets
+terrace

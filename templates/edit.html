@@ -69,6 +69,23 @@
             background-color: #357ABD;
         }
 
+        /* 分组选择下拉框 */
+        .group-selection {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .group-selection label {
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .group-selection select {
+            min-width: 200px;
+            padding: 6px;
+            font-size: 14px;
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
@@ -375,9 +392,44 @@
 <body>
     <div class="container">
         <h1>Edit Text File</h1>
+
+        <!-- 新增：分组多选下拉以及“设置 combined training”单选下拉 -->
+        <div class="group-selection">
+            <form method="GET" action="{{ url_for('edit_file.edit') }}" style="margin:0; display:flex; align-items: center; gap:10px;">
+                <label>choose group(s):</label>
+                <select name="groups" multiple size="4">
+                    {% for gname in group_names %}
+                        <option value="{{gname}}"
+                            {% if gname in selected_groups %}
+                                selected
+                            {% endif %}
+                        >{{gname}}</option>
+                    {% endfor %}
+                </select>
+                <input type="hidden" name="search" value="{{ search_query }}">
+                <button type="submit" class="control-btn">OK</button>
+            </form>
+
+            <!-- 设置 combined training 的下拉框和按钮 -->
+            <form method="GET" action="/mixed_training_setup" style="margin:0; display:flex; align-items: center; gap:10px;">
+                <label>combined training group:</label>
+                <select name="group">
+                    <option value="">all lines</option>
+                    {% for gname in group_names %}
+                        <option value="{{gname}}">{{gname}}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="control-btn">go</button>
+            </form>
+        </div>
+
         <!-- 修改后的搜索框 -->
         <div class="search-box">
             <form method="GET" action="{{ url_for('edit_file.edit') }}">
+                <!-- 保留多选组信息 -->
+                {% for sg in selected_groups %}
+                    <input type="hidden" name="groups" value="{{sg}}">
+                {% endfor %}
                 <input type="text" id="searchInput" name="search" placeholder="search text..." value="{{ search_query }}">
                 <button type="submit">search</button>
             </form>
@@ -432,8 +484,8 @@
         <!-- 分页控件 -->
         <div class="pagination">
             {% if current_page > 1 %}
-                <a href="{{ url_for('edit_file.edit', page=1, search=search_query) }}">&laquo; first</a>
-                <a href="{{ url_for('edit_file.edit', page=current_page - 1, search=search_query) }}">&lt; last</a>
+                <a href="{{ url_for('edit_file.edit', page=1, search=search_query, groups=selected_groups) }}">&laquo; first</a>
+                <a href="{{ url_for('edit_file.edit', page=current_page - 1, search=search_query, groups=selected_groups) }}">&lt; last</a>
             {% else %}
                 <span class="disabled">&laquo; first</span>
                 <span class="disabled">&lt; last</span>
@@ -444,7 +496,7 @@
                     {% if page == current_page %}
                         <span class="active">{{ page }}</span>
                     {% else %}
-                        <a href="{{ url_for('edit_file.edit', page=page, search=search_query) }}">{{ page }}</a>
+                        <a href="{{ url_for('edit_file.edit', page=page, search=search_query, groups=selected_groups) }}">{{ page }}</a>
                     {% endif %}
                 {% endfor %}
             {% else %}
@@ -452,24 +504,24 @@
                     {% if page == current_page %}
                         <span class="active">{{ page }}</span>
                     {% else %}
-                        <a href="{{ url_for('edit_file.edit', page=page, search=search_query) }}">{{ page }}</a>
+                        <a href="{{ url_for('edit_file.edit', page=page, search=search_query, groups=selected_groups) }}">{{ page }}</a>
                     {% endif %}
                 {% endfor %}
                 {% if current_page > 3 and current_page < total_pages - 1 %}
                     <span>...</span>
                 {% elif current_page == 3 %}
-                    <a href="{{ url_for('edit_file.edit', page=3, search=search_query) }}">3</a>
+                    <a href="{{ url_for('edit_file.edit', page=3, search=search_query, groups=selected_groups) }}">3</a>
                 {% elif current_page == total_pages - 1 %}
-                    <a href="{{ url_for('edit_file.edit', page=total_pages - 1, search=search_query) }}">{{ total_pages - 1 }}</a>
+                    <a href="{{ url_for('edit_file.edit', page=total_pages - 1, search=search_query, groups=selected_groups) }}">{{ total_pages - 1 }}</a>
                 {% endif %}
                 {% if current_page != total_pages and total_pages > 2 %}
-                    <a href="{{ url_for('edit_file.edit', page=total_pages, search=search_query) }}">{{ total_pages }}</a>
+                    <a href="{{ url_for('edit_file.edit', page=total_pages, search=search_query, groups=selected_groups) }}">{{ total_pages }}</a>
                 {% endif %}
             {% endif %}
 
             {% if current_page < total_pages %}
-                <a href="{{ url_for('edit_file.edit', page=current_page + 1, search=search_query) }}">next&gt;</a>
-                <a href="{{ url_for('edit_file.edit', page=total_pages, search=search_query) }}">final&raquo;</a>
+                <a href="{{ url_for('edit_file.edit', page=current_page + 1, search=search_query, groups=selected_groups) }}">next&gt;</a>
+                <a href="{{ url_for('edit_file.edit', page=total_pages, search=search_query, groups=selected_groups) }}">final&raquo;</a>
             {% else %}
                 <span class="disabled">next&gt;</span>
                 <span class="disabled">final&raquo;</span>
@@ -478,14 +530,20 @@
             <!-- 页码输入框和确定按钮 -->
             <form method="GET" action="{{ url_for('edit_file.edit') }}">
                 <input type="number" name="page" min="1" max="{{ total_pages }}" placeholder="page num" required>
-                {% if search_query %}
-                    <input type="hidden" name="search" value="{{ search_query }}">
-                {% endif %}
+                <!-- 保留多选组信息 -->
+                {% for sg in selected_groups %}
+                    <input type="hidden" name="groups" value="{{sg}}">
+                {% endfor %}
+                <input type="hidden" name="search" value="{{ search_query }}">
                 <button type="submit" class="control-btn">确定</button>
             </form>
         </div>
 
         <form method="POST" action="{{ url_for('edit_file.edit', page=current_page, search=search_query) }}">
+            <!-- 保留多选组信息 -->
+            {% for sg in selected_groups %}
+                <input type="hidden" name="groups" value="{{sg}}">
+            {% endfor %}
             <div class="form-group">
                 <label for="new_line">content（support multiply line, one line one data）：</label>
                 <textarea id="new_line" name="new_line" rows="5" required></textarea>
@@ -534,10 +592,9 @@
                 const lineNumber = button.getAttribute('data-line-number');
                 if (directDeleteCheckbox.checked) {
                     // 直接删除，无需弹出模态框
-                    // 创建一个临时表单并提交
                     const tempForm = document.createElement('form');
                     tempForm.method = 'POST';
-                    tempForm.action = "{{ url_for('edit_file.edit', page=current_page, search=search_query) }}";
+                    tempForm.action = "{{ url_for('edit_file.edit', page=current_page, search=search_query, groups=selected_groups) }}";
 
                     const actionInput = document.createElement('input');
                     actionInput.type = 'hidden';
@@ -554,7 +611,6 @@
                     document.body.appendChild(tempForm);
                     tempForm.submit();
                 } else {
-                    // 弹出模态框确认删除
                     modalAction.value = 'delete';
                     modalLineNumbers.innerHTML = `<input type="hidden" name="line_number" value="${lineNumber}">`;
                     modalMessage.innerText = 'did you want delete this row?';
@@ -563,34 +619,28 @@
             });
         });
 
-        // 打开模态框
         function openModal() {
             modal.style.display = 'block';
         }
 
-        // 关闭模态框
         function closeModal() {
             modal.style.display = 'none';
-            // 清空模态框内容
             modalLineNumbers.innerHTML = '';
             modalAction.value = '';
             modalMessage.innerText = 'sure?';
         }
 
-        // 当用户点击模态框外部时，关闭模态框
         window.onclick = function(event) {
             if (event.target == modal) {
                 closeModal();
             }
         }
 
-        // 批量删除按钮点击事件
         deleteSelectedBtn.addEventListener('click', () => {
             const selectedCheckboxes = document.querySelectorAll('.select-checkbox:checked');
             const selectedCount = selectedCheckboxes.length;
 
             if (selectedCount === 0) {
-                // 弹出模态框提示未选择
                 modalAction.value = '';
                 modalLineNumbers.innerHTML = '';
                 modalMessage.innerText = 'at least 1';
@@ -600,11 +650,9 @@
 
             const selectedLines = Array.from(selectedCheckboxes).map(cb => cb.value);
             if (directDeleteCheckbox.checked) {
-                // 直接删除，无需弹出模态框
-                // 创建一个临时表单并提交
                 const tempForm = document.createElement('form');
                 tempForm.method = 'POST';
-                tempForm.action = "{{ url_for('edit_file.edit', page=current_page, search=search_query) }}";
+                tempForm.action = "{{ url_for('edit_file.edit', page=current_page, search=search_query, groups=selected_groups) }}";
 
                 const actionInput = document.createElement('input');
                 actionInput.type = 'hidden';
@@ -623,7 +671,6 @@
                 document.body.appendChild(tempForm);
                 tempForm.submit();
             } else {
-                // 弹出模态框确认删除
                 modalAction.value = 'delete_selected';
                 modalLineNumbers.innerHTML = selectedLines.map(lineNumber =>
                     `<input type="hidden" name="selected_lines" value="${lineNumber}">`
@@ -633,7 +680,6 @@
             }
         });
 
-        // 全选复选框功能
         selectAllCheckbox.addEventListener('change', () => {
             const checkboxes = document.querySelectorAll('.select-checkbox');
             checkboxes.forEach(cb => {
