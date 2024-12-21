@@ -13,20 +13,18 @@ from flask import Flask, render_template, request, jsonify, send_from_directory,
 from flask_session import Session
 from gtts import gTTS
 
+# dao
 from dao.store_dao import select_all_store
-from dao.translations_dao import select_all_translations, delete_translation
-from dao.translations_dao import upsert_translation
-from edit_file import edit_file_blueprint  # 蓝图
-# services
+from dao.translations_dao import select_all_translations, delete_translation, upsert_translation
+from dao.setting_dao import get_setting, set_setting
+
+from edit_file import edit_file_blueprint
 from services.app_service import (
     get_audio_file_path,
     read_text_file_by_group,
     shuffle_random_order
 )
 
-##################################
-# Flask 与 Session 配置
-##################################
 app = Flask(__name__)
 app.register_blueprint(edit_file_blueprint, url_prefix='/file')
 
@@ -42,14 +40,10 @@ os.makedirs(AUDIO_PERSISTENT_DIR, exist_ok=True)
 
 translations_lock = threading.Lock()
 
-
 def delete_temp_files():
-    # 清理临时音频文件（视需要可实现，暂为空）
     pass
 
-
 atexit.register(delete_temp_files)
-
 
 @app.before_request
 def initialize_session_vars():
@@ -65,26 +59,22 @@ def initialize_session_vars():
         session['random_order'] = []
     if 'random_index' not in session:
         session['random_index'] = 0
-    if 'selected_group' not in session:
-        session['selected_group'] = ''
-
 
 @app.route('/restart', methods=['GET'])
 def restart():
     os.system("sudo systemctl restart your_project_service")
     return "Project restarted successfully!", 200
 
-
 @app.route('/language')
 def index():
     return render_template('index.html')
 
 
+#########################
+# 读取数据库中所有存在的 group
+#########################
 @app.route('/get_groups', methods=['GET'])
 def get_groups():
-    """
-    将 store 表分组情况返回给前端
-    """
     rows = select_all_store()
     group_map = {}
     for (sid, gname, line_text) in rows:
@@ -96,20 +86,62 @@ def get_groups():
     return jsonify({'groups': group_names})
 
 
-@app.route('/set_group', methods=['GET'])
-def set_group():
-    group_name = request.args.get('group', '')
-    session['selected_group'] = group_name or ''
-    return redirect(url_for('index'))
+#########################
+# 新增: 读写 setting 表
+#########################
+@app.route('/get_setting_groups', methods=['GET'])
+def get_setting_groups():
+    """
+    传入 name=? (index_top / edit_choose / combined_training)
+    返回 setting 中存的 selected_groups 列表
+    """
+    name = request.args.get('name', '')
+    if not name:
+        return jsonify({'status': 'error', 'message': 'missing name'})
+    selected = get_setting(name)  # list[str]
+    return jsonify({'status': 'success', 'groups': selected})
+
+@app.route('/set_setting_groups', methods=['POST'])
+def set_setting_groups():
+    """
+    用于更新 setting 表中 name=? 对应的 groups(list[str])
+    前端可用 JSON 发送 { name: 'xxx', groups: [...] }
+    """
+    data = request.get_json()
+    name = data.get('name', '').strip()
+    groups = data.get('groups', [])
+    if not name:
+        return jsonify({'status': 'error', 'message': 'invalid name'})
+    # 强转成字符串列表
+    if not isinstance(groups, list):
+        return jsonify({'status': 'error', 'message': 'invalid groups'})
+    set_setting(name, groups)
+    return jsonify({'status': 'success'})
 
 
-##################################
-# 播放逻辑
-##################################
+#########################
+# 播放逻辑: 读 selected_groups
+#########################
+def read_text_file_by_multiple_groups(groups):
+    """
+    若 groups 为空, 读全部
+    """
+    from dao.store_dao import select_all_store
+    rows = select_all_store()
+    if not groups:
+        return [r[2] for r in rows]
+    lines = []
+    for (sid, gname, line_text) in rows:
+        g = gname if gname else ""
+        if g in groups:
+            lines.append(line_text)
+    return lines
+
 @app.route('/play', methods=['POST'])
 def play():
-    selected_group = session.get('selected_group', '')
-    current_lines = read_text_file_by_group(selected_group)
+    # main page 顶部下拉 => name='index_top'
+    selected_groups = get_setting('index_top')
+    current_lines = read_text_file_by_multiple_groups(selected_groups)
     total_lines_current = len(current_lines)
     if total_lines_current == 0:
         return jsonify({'status': 'no_more_text'})
@@ -121,8 +153,7 @@ def play():
         text = current_lines[line_index]
         filename, file_path = get_audio_file_path(text)
         if not os.path.exists(file_path):
-            text_clean = text
-            tts = gTTS(text=text_clean, lang='en', tld='com')
+            tts = gTTS(text=text, lang='en', tld='com')
             tts.save(file_path)
         response = {
             'status': 'success',
@@ -147,8 +178,7 @@ def play():
         text = current_lines[line_index]
         filename, file_path = get_audio_file_path(text)
         if not os.path.exists(file_path):
-            text_clean = text
-            tts = gTTS(text=text_clean, lang='en', tld='com')
+            tts = gTTS(text=text, lang='en', tld='com')
             tts.save(file_path)
         response = {
             'status': 'success',
@@ -174,18 +204,15 @@ def set_play_options():
         return jsonify({'status': 'error', 'message': 'Invalid input.'})
     return jsonify({'status': 'options_set'})
 
-
 @app.route('/get_play_options', methods=['GET'])
 def get_play_options():
     return jsonify({'play_count': session['play_count'], 'play_interval': session['play_interval']})
 
-
 @app.route('/get_current_text', methods=['GET'])
 def get_current_text():
-    selected_group = session.get('selected_group', '')
-    current_lines = read_text_file_by_group(selected_group)
-    current_total = len(current_lines)
-    if 0 <= session['current_index'] < current_total:
+    selected_groups = get_setting('index_top')  # 主页顶部下拉
+    current_lines = read_text_file_by_multiple_groups(selected_groups)
+    if 0 <= session['current_index'] < len(current_lines):
         return jsonify({
             'status': 'success',
             'text': current_lines[session['current_index']],
@@ -194,18 +221,16 @@ def get_current_text():
     else:
         return jsonify({'status': 'success', 'text': 'no more.', 'sentence_index': -1})
 
-
 @app.route('/stop', methods=['POST'])
 def stop():
     session['current_index'] = 0
     session['random_index'] = 0
     return jsonify({'status': 'stopped'})
 
-
 @app.route('/toggle_play_mode', methods=['POST'])
 def toggle_play_mode():
-    selected_group = session.get('selected_group', '')
-    current_lines = read_text_file_by_group(selected_group)
+    selected_groups = get_setting('index_top')
+    current_lines = read_text_file_by_multiple_groups(selected_groups)
     line_count = len(current_lines)
 
     if session['play_mode'] == 'sequential':
@@ -220,20 +245,18 @@ def toggle_play_mode():
         session['play_mode'] = 'sequential'
     return jsonify({'status': 'mode_toggled', 'play_mode': session['play_mode']})
 
-
 @app.route('/get_play_mode', methods=['GET'])
 def get_play_mode():
     return jsonify({'play_mode': session['play_mode']})
 
-
 @app.route('/next', methods=['POST'])
 def next_line():
-    selected_group = session.get('selected_group', '')
-    current_lines = read_text_file_by_group(selected_group)
-    total_lines_current = len(current_lines)
+    selected_groups = get_setting('index_top')
+    current_lines = read_text_file_by_multiple_groups(selected_groups)
+    line_count = len(current_lines)
 
     if session['play_mode'] == 'sequential':
-        if session['current_index'] < total_lines_current - 1:
+        if session['current_index'] < line_count - 1:
             session['current_index'] += 1
         else:
             session['current_index'] = 0
@@ -241,28 +264,25 @@ def next_line():
 
     elif session['play_mode'] == 'random':
         if not session['random_order']:
-            session['random_order'] = list(range(total_lines_current))
+            session['random_order'] = list(range(line_count))
             random.shuffle(session['random_order'])
             session['random_index'] = 0
 
-        if session['random_index'] < total_lines_current - 1:
+        if session['random_index'] < line_count - 1:
             session['random_index'] += 1
-            return jsonify({'status': 'success', 'current_index': session['random_order'][session['random_index']]})
         else:
             last_idx = session['random_order'][-1]
-            session['random_order'] = shuffle_random_order(last_idx, total_lines_current)
+            session['random_order'] = shuffle_random_order(last_idx, line_count)
             session['random_index'] = 0
-            return jsonify({'status': 'success', 'current_index': session['random_order'][session['random_index']]})
+        return jsonify({'status': 'success', 'current_index': session['random_order'][session['random_index']]})
     else:
         return jsonify({'status': 'error', 'message': 'Unknown play mode.'})
 
 
 @app.route('/previous', methods=['POST'])
 def previous_line():
-    selected_group = session.get('selected_group', '')
-    current_lines = read_text_file_by_group(selected_group)
-    total_lines_current = len(current_lines)
-
+    selected_groups = get_setting('index_top')
+    current_lines = read_text_file_by_multiple_groups(selected_groups)
     if session['play_mode'] == 'sequential':
         if session['current_index'] > 0:
             session['current_index'] -= 1
@@ -280,23 +300,16 @@ def previous_line():
 
 
 ##################################
-# 新增：/translate 路由，用于主页获取翻译
+# 翻译相关
 ##################################
 @app.route('/translate', methods=['POST'])
 def translate_text():
-    """
-    前端 index.html 调用此接口，用传入的整句文本 text，
-    从 translations 表里查找对应翻译并返回。
-    如果找不到翻译则返回 'missing_translation'。
-    """
     try:
         data = request.get_json()
         text = data.get('text', '')
-        # 将类似 <red: ...> 样式标签去掉，只保留文字
         text_clean = re.sub(r'<(\w+):\s*([^>]+)>', r'\2', text)
         with translations_lock:
             current_translations = select_all_translations()
-        # 在 translations 里查找
         if text_clean in current_translations:
             return jsonify({'status': 'success', 'translated_text': current_translations[text_clean]})
         else:
@@ -304,17 +317,12 @@ def translate_text():
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
 
-
-##################################
-# 扫描资源(翻译 & TTS)逻辑
-##################################
 @app.route('/scan_resources', methods=['GET'])
 def scan_resources():
     def generate_events():
         try:
-            rows = select_all_store()  # [(id, group_name, line_text), ...]
+            rows = select_all_store()
             all_lines = [r[2] for r in rows]
-
             if not all_lines:
                 yield f"data: {{\"status\":\"done\",\"message\":\"no data\"}}\n\n"
                 return
@@ -327,17 +335,16 @@ def scan_resources():
                 text_clean = re.sub(r'<\\w+:\\s*([^>]+)>', r'\\1', line)
                 current_texts.add(text_clean)
 
-            # 删除不在数据库中的翻译 & 音频
-            texts_to_remove = [t for t in current_translations.keys() if t not in current_texts]
-            for ttr in texts_to_remove:
-                delete_translation(ttr)
-                text_hash = hashlib.sha256(ttr.encode('utf-8')).hexdigest()
-                filename = f"audio_{text_hash}.mp3"
-                file_path = os.path.join(AUDIO_PERSISTENT_DIR, filename)
-                if os.path.exists(file_path):
-                    os.remove(file_path)
+            # 删除旧翻译及音频
+            for ttr in list(current_translations.keys()):
+                if ttr not in current_texts:
+                    delete_translation(ttr)
+                    text_hash = hashlib.sha256(ttr.encode('utf-8')).hexdigest()
+                    fpath = os.path.join(AUDIO_PERSISTENT_DIR, f'audio_{text_hash}.mp3')
+                    if os.path.exists(fpath):
+                        os.remove(fpath)
 
-            # 检查哪些行需要TTS/翻译
+            # 需要生成
             lines_to_scan = []
             for line in all_lines:
                 filename, file_path = get_audio_file_path(line)
@@ -349,15 +356,13 @@ def scan_resources():
                 yield f"data: {{\"status\":\"done\"}}\n\n"
                 return
 
-            i = 0
             for i, text in enumerate(lines_to_scan):
                 filename, file_path = get_audio_file_path(text)
-                text_clean = text
-
                 if not os.path.exists(file_path):
-                    tts = gTTS(text=text_clean, lang='en', tld='com')
+                    tts = gTTS(text=text, lang='en', tld='com')
                     tts.save(file_path)
 
+                text_clean = re.sub(r'<\\w+:\\s*([^>]+)>', r'\\1', text)
                 if text_clean not in current_translations:
                     translated_text = GoogleTranslator(source='en', target='zh-CN').translate(text_clean)
                     upsert_translation(text_clean, translated_text)
@@ -367,7 +372,6 @@ def scan_resources():
                 yield f"data: {{\"status\":\"working\",\"progress\":{progress},\"current_index\":{i + 1},\"total\":{len(lines_to_scan)}}}\n\n"
 
             yield f"data: {{\"status\":\"done\"}}\n\n"
-
         except Exception as e:
             yield f"data: {{\"status\":\"error\",\"message\":\"{str(e)}\"}}\n\n"
 
@@ -375,18 +379,29 @@ def scan_resources():
 
 
 ##################################
-# Mixed training 等路由
-# (保持原先逻辑不变)
+# Mixed training
 ##################################
 @app.route('/mixed_training_setup', methods=['GET'])
 def mixed_training_setup():
-    group_name = request.args.get('group', '').strip()
-    if group_name:
-        lines_in_group = read_text_file_by_group(group_name)
+    """
+    这里改为从 setting 表读取 'combined_training' 选组
+    若该组为空，则视为全部
+    """
+    groups = get_setting('combined_training')
+    if groups:
+        # 只读这些组
+        rows = select_all_store()
+        lines_in_groups = []
+        for (sid, gname, line_text) in rows:
+            g = gname if gname else ""
+            if g in groups:
+                lines_in_groups.append(line_text)
+        lines_in_group = list(set(lines_in_groups))
     else:
+        # 若没有设置，就读取所有
         rows = select_all_store()
         lines_in_group = [r[2] for r in rows]
-    lines_in_group = list(set(lines_in_group))
+
     if len(lines_in_group) == 0:
         return redirect(url_for('index'))
 
@@ -413,11 +428,9 @@ def mixed_training_setup():
     session['mixed_set'] = mixed_set
     return redirect(url_for('mixed_training'))
 
-
 @app.route('/mixed_training')
 def mixed_training():
     return render_template('mixed_training.html')
-
 
 @app.route('/mixed_training_next', methods=['GET'])
 def mixed_training_next():
@@ -454,7 +467,6 @@ def mixed_training_next():
 
     return jsonify(response)
 
-
 @app.route('/mixed_training_mark', methods=['POST'])
 def mixed_training_mark():
     data = request.get_json()
@@ -474,15 +486,17 @@ def mixed_training_mark():
     other_lang = 'zh' if lang == 'en' else 'en'
     other_text = found[other_lang]
 
-    if choice == 'known':
+    if choice == 'reveal':
+        return jsonify({'status': 'success', 'other_text': other_text})
+    elif choice == 'known':
         mixed_set.remove(found)
         session['mixed_set'] = mixed_set
         return jsonify({'status': 'success', 'other_text': other_text, 'done_for_this': True})
     else:
+        # unremembered
         found['wrong_count'] += 1
         session['mixed_set'] = mixed_set
         return jsonify({'status': 'success', 'other_text': other_text, 'done_for_this': False})
-
 
 @app.route('/mixed_training_check_finish', methods=['GET'])
 def mixed_training_check_finish():
@@ -491,7 +505,6 @@ def mixed_training_check_finish():
         return jsonify({'status': 'finished'})
     else:
         return jsonify({'status': 'not_finished'})
-
 
 @app.route('/mixed_training_update_initial', methods=['POST'])
 def mixed_training_update_initial():
@@ -508,11 +521,9 @@ def mixed_training_update_initial():
     session['mixed_set_initial'] = initial_set
     return jsonify({'status': 'success'})
 
-
 @app.route('/mixed_training_all_done')
 def mixed_training_all_done():
     return redirect(url_for('mixed_training_finish'))
-
 
 @app.route('/mixed_training_finish')
 def mixed_training_finish():

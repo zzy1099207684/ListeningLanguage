@@ -1,403 +1,371 @@
-<!--index.html-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reading</title>
-    <style>
-        body {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            font-family: 'Arial', sans-serif;
-            margin: 0;
-            padding: 10px;
-            background-color: #fafafa;
-            color: #333;
-            text-align: center;
-            position: relative;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reading</title>
 
+  <!-- multipleSelect 插件CSS/JS (CDN示例) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/multiple-select@1.5.2/dist/multiple-select.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/multiple-select@1.5.2/dist/multiple-select.min.js"></script>
+
+  <style>
+    body {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        font-family: 'Arial', sans-serif;
+        margin: 0;
+        padding: 10px;
+        background-color: #fafafa;
+        color: #333;
+        text-align: center;
+        position: relative;
+    }
+    h1 {
+        margin-top: 30px;
+        margin-bottom: 20px;
+        font-size: 24px;
+        color: #4A90E2;
+    }
+    #groupSelectorContainer {
+        position: relative;
+        margin-bottom: 30px;
+        top: 50px;
+    }
+    #current-text {
+        margin-bottom: 20px;
+        font-size: 40px;
+        color: #666;
+        padding: 0 10px;
+        font-weight: 900;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        user-select: text;
+        position: relative;
+    }
+    #translated-text {
+        position: relative;
+        font-size: 16px;
+        color: #888;
+        font-style: italic;
+    }
+    .controls, .play-options, .display-options, .scan-options {
+        display: flex;
+        flex-direction: row;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    .control-btn, .scan-btn {
+        background-color: #4A90E2;
+        border: none;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 12px;
+        font-size: 16px;
+        cursor: pointer;
+        box-shadow: 0 4px 6px rgba(0, 123, 255, 0.24), 0 1px 3px rgba(0, 0, 0, 0.08);
+        transition: background-color 0.3s, transform 0.3s, opacity 0.3s;
+        flex: 1 1 120px;
+        max-width: 200px;
+    }
+    .control-btn:hover:not(:disabled), .scan-btn:hover:not(:disabled) {
+        background-color: #357ABD;
+        transform: translateY(-2px);
+        box-shadow: 0 7px 14px rgba(0, 123, 255, 0.24), 0 3px 6px rgba(0, 0, 0, 0.08);
+    }
+    .control-btn:disabled, .scan-btn:disabled {
+        background-color: #a0c4e8;
+        cursor: not-allowed;
+        opacity: 0.6;
+        transform: none;
+        box-shadow: none;
+    }
+    .play-options button {
+        background-color: #FF6347;
+        border: none;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 12px;
+        font-size: 16px;
+        cursor: pointer;
+        box-shadow: 0 4px 6px rgba(255, 99, 71, 0.24), 0 1px 3px rgba(0, 0, 0, 0.08);
+        transition: background-color 0.3s, transform 0.3s, opacity 0.3s;
+        min-width: 60px;
+        text-align: center;
+    }
+    .play-options button:hover:not(:disabled) {
+        background-color: #e5533d;
+        transform: translateY(-2px);
+        box-shadow: 0 7px 14px rgba(255, 99, 71, 0.24), 0 3px 6px rgba(0, 0, 0, 0.08);
+    }
+    .play-options button:disabled {
+        background-color: #a0c4e8;
+        cursor: not-allowed;
+        opacity: 0.6;
+        transform: none;
+        box-shadow: none;
+    }
+    .play-options span {
+        color: #333;
+        font-size: 16px;
+        margin: 5px 0;
+    }
+    .display-options {
+        gap: 10px;
+    }
+    .display-options label {
+        font-size: 16px;
+        color: #333;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    #audio_player {
+        display: none;
+    }
+    @media (max-width: 600px) {
         h1 {
-            font-size: 24px;
-            color: #4A90E2;
-            margin-bottom: 20px;
+            font-size: 20px;
         }
-
         #current-text {
-            margin-bottom: 20px;
-            font-size: 40px;
-            color: #666;
-            padding: 0 10px;
+            font-size: 24px;
             font-weight: 900;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-            user-select: text;
-            position: relative;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
         }
-
         #translated-text {
-            margin-top: 10px;
-            font-size: 16px;
-            color: #888;
-            font-style: italic;
+            font-size: 14px;
         }
-
-        .controls, .play-options, .display-options, .scan-options {
-            display: flex;
-            flex-direction: row;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-
         .control-btn, .scan-btn {
-            background-color: #4A90E2;
-            border: none;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 12px;
-            font-size: 16px;
-            cursor: pointer;
-            box-shadow: 0 4px 6px rgba(0, 123, 255, 0.24), 0 1px 3px rgba(0, 0, 0, 0.08);
-            transition: background-color 0.3s, transform 0.3s, opacity 0.3s;
-            flex: 1 1 120px;
-            max-width: 200px;
+            padding: 10px 20px;
+            font-size: 14px;
+            flex: 1 1 100px;
+            max-width: 150px;
         }
-
-        .control-btn:hover:not(:disabled), .scan-btn:hover:not(:disabled) {
-            background-color: #357ABD;
-            transform: translateY(-2px);
-            box-shadow: 0 7px 14px rgba(0, 123, 255, 0.24), 0 3px 6px rgba(0, 0, 0, 0.08);
-        }
-
-        .control-btn:disabled, .scan-btn:disabled {
-            background-color: #a0c4e8;
-            cursor: not-allowed;
-            opacity: 0.6;
-            transform: none;
-            box-shadow: none;
-        }
-
         .play-options button {
-            background-color: #FF6347;
-            border: none;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 12px;
-            font-size: 16px;
-            cursor: pointer;
-            box-shadow: 0 4px 6px rgba(255, 99, 71, 0.24), 0 1px 3px rgba(0, 0, 0, 0.08);
-            transition: background-color 0.3s, transform 0.3s, opacity 0.3s;
-            min-width: 60px;
-            text-align: center;
+            padding: 10px 20px;
+            font-size: 14px;
+            min-width: 50px;
         }
-
-        .play-options button:hover:not(:disabled) {
-            background-color: #e5533d;
-            transform: translateY(-2px);
-            box-shadow: 0 7px 14px rgba(255, 99, 71, 0.24), 0 3px 6px rgba(0, 0, 0, 0.08);
-        }
-
-        .play-options button:disabled {
-            background-color: #a0c4e8;
-            cursor: not-allowed;
-            opacity: 0.6;
-            transform: none;
-            box-shadow: none;
-        }
-
         .play-options span {
-            color: #333;
-            font-size: 16px;
-            margin: 5px 0;
+            font-size: 14px;
         }
-
-        .display-options {
-            gap: 10px;
-        }
-
         .display-options label {
-            font-size: 16px;
-            color: #333;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        #audio_player {
-            display: none;
-        }
-
-        @media (max-width: 600px) {
-            h1 {
-                font-size: 20px;
-            }
-
-            #current-text {
-                font-size: 24px;
-                font-weight: 900;
-                text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
-            }
-
-            #translated-text {
-                font-size: 14px;
-            }
-
-            .control-btn, .scan-btn {
-                padding: 10px 20px;
-                font-size: 14px;
-                flex: 1 1 100px;
-                max-width: 150px;
-            }
-
-            .play-options button {
-                padding: 10px 20px;
-                font-size: 14px;
-                min-width: 50px;
-            }
-
-            .play-options span {
-                font-size: 14px;
-            }
-
-            .display-options label {
-                font-size: 14px;
-            }
-        }
-
-        #toggleModeBtn {
-            background-color: #50C878;
-        }
-
-        #toggleModeBtn:hover:not(:disabled) {
-            background-color: #3AAE6B;
-        }
-
-        .highlight {
-            cursor: pointer;
-            transition: color 0.3s;
-            position: relative;
-        }
-
-        .highlight.red {
-            color: #FF0000;
-        }
-
-        .scan-options .scan-btn {
-            background-color: #FFA500;
-        }
-
-        .scan-options .scan-btn:hover:not(:disabled) {
-            background-color: #e59400;
-        }
-
-        #word-tooltip {
-            position: absolute;
-            background: #fff;
-            border: 1px solid #ddd;
-            padding: 5px;
-            border-radius: 5px;
-            display: none;
-            max-width: 200px;
-            line-height: 1.5;
             font-size: 14px;
-            z-index: 9999;
-            box-shadow: 0px 2px 8px rgba(0,0,0,0.2);
         }
+    }
+    #toggleModeBtn {
+        background-color: #50C878;
+    }
+    #toggleModeBtn:hover:not(:disabled) {
+        background-color: #3AAE6B;
+    }
+    .highlight {
+        cursor: pointer;
+        transition: color 0.3s;
+        position: relative;
 
-        /* 新增: groupSelector 样式 */
-        #groupSelector {
-            font-size: 14px;
-            padding: 6px;
-            margin-top: 5px;
-        }
-    </style>
+    }
+    .highlight.red {
+        color: #FF0000;
+    }
+    .scan-options .scan-btn {
+        background-color: #FFA500;
+    }
+    .scan-options .scan-btn:hover:not(:disabled) {
+        background-color: #e59400;
+    }
+    #word-tooltip {
+        position: absolute;
+        background: #fff;
+        border: 1px solid #ddd;
+        padding: 5px;
+        border-radius: 5px;
+        display: none;
+        max-width: 200px;
+        line-height: 1.5;
+        font-size: 14px;
+        z-index: 9999;
+        box-shadow: 0px 2px 8px rgba(0,0,0,0.2);
+    }
+    #groupSelector {
+        font-size: 14px;
+        padding: 6px;
+    }
+  </style>
 </head>
 <body>
-    <!-- 新增：顶部下拉框选择组 -->
-    <h1>Reading</h1>
-    <div>
-        <select id="groupSelector">
-            <option value="">All Groups</option>
-        </select>
-    </div>
+  <h1>Reading</h1>
 
-    <div id="text-container">
-        <p id="current-text">Text will appear here...</p>
-        <p id="translated-text">translate will appear here</p>
-    </div>
-    <!-- 将所有播放控制按钮和随机/顺序按钮放在同一个 .controls 容器中 -->
-    <div class="controls">
-        <button class="control-btn" id="previousBtn" onclick="previousLine()">⏮</button>
-        <button class="control-btn" id="playPauseBtn" onclick="togglePlayPause()">▶️</button>
-        <button class="control-btn" id="nextBtn" onclick="nextLine()">⏭</button>
-        <button class="control-btn" id="toggleModeBtn" onclick="togglePlayMode()">sequential</button>
-    </div>
-    <div class="play-options">
-        <div>
-            <button id="play-count-btn" onclick="changePlayCount()">1</button>
-            <span>Play Count</span>
-        </div>
-        <div>
-            <button id="play-interval-btn" onclick="changePlayInterval()">1</button>
-            <span>Play Interval (seconds)</span>
-        </div>
-    </div>
-    <div class="display-options">
-        <label>
-            <input type="checkbox" id="toggleEnglish" checked>
-            show english
-        </label>
-        <label>
-            <input type="checkbox" id="toggleTranslation" checked>
-            show translate
-        </label>
-    </div>
-    <div class="controls">
-        <button class="control-btn" onclick="window.location.href='/file/edit'">Edit File</button>
-        <button class="control-btn" onclick="window.location.href='/mixed_training_setup'">combined training</button>
-    </div>
-    <div class="scan-options">
-        <button class="scan-btn" id="scanTranslationAndAudio" onclick="scanTranslationAndAudio()">scan new resource</button>
-    </div>
-    <div>
-        <p id="scan-progress" style="margin-top:10px;font-size:16px;color:#333;"></p>
-    </div>
-    <audio id="audio_player" controls></audio>
-    <div id="word-tooltip"></div>
-    <script>
-        let isPlaying = false;
-        let playCount = 1;
-        let playInterval = 1000;
-        let currentPlay = 0;
-        let audioPlayer = document.getElementById('audio_player');
-        let toggleModeBtn = document.getElementById('toggleModeBtn');
-        let previousBtn = document.getElementById('previousBtn');
-        let nextBtn = document.getElementById('nextBtn');
-        let playCountBtn = document.getElementById('play-count-btn');
-        let playIntervalBtn = document.getElementById('play-interval-btn');
-        let translatedText = document.getElementById('translated-text');
-        let currentText = document.getElementById('current-text');
-        let wordTooltip = document.getElementById('word-tooltip');
+  <!-- 多选下拉,无需OK按钮,一旦选中就写入setting表并刷新页面 -->
+  <div id="groupSelectorContainer" style="margin-top:10px;">
+      <select id="groupSelector" multiple="multiple">
+      </select>
+  </div>
 
-        let toggleEnglish = document.getElementById('toggleEnglish');
-        let toggleTranslation = document.getElementById('toggleTranslation');
+  <div id="text-container">
+      <p id="current-text">Text will appear here...</p>
+      <p id="translated-text">translate will appear here</p>
+  </div>
+  <div class="controls">
+      <button class="control-btn" id="previousBtn" onclick="previousLine()">⏮</button>
+      <button class="control-btn" id="playPauseBtn" onclick="togglePlayPause()">▶️</button>
+      <button class="control-btn" id="nextBtn" onclick="nextLine()">⏭</button>
+      <button class="control-btn" id="toggleModeBtn" onclick="togglePlayMode()">sequential</button>
+  </div>
+  <div class="play-options">
+      <div>
+          <button id="play-count-btn" onclick="changePlayCount()">1</button>
+          <span>Play Count</span>
+      </div>
+      <div>
+          <button id="play-interval-btn" onclick="changePlayInterval()">1</button>
+          <span>Play Interval (seconds)</span>
+      </div>
+  </div>
+  <div class="display-options">
+      <label>
+          <input type="checkbox" id="toggleEnglish" checked>
+          show english
+      </label>
+      <label>
+          <input type="checkbox" id="toggleTranslation" checked>
+          show translate
+      </label>
+  </div>
+  <div class="controls">
+      <button class="control-btn" onclick="window.location.href='/file/edit'">Edit File</button>
+      <button class="control-btn" onclick="window.location.href='/mixed_training_setup'">combined training</button>
+  </div>
+  <div class="scan-options">
+      <button class="scan-btn" id="scanTranslationAndAudio" onclick="scanTranslationAndAudio()">scan new resource</button>
+  </div>
+  <div>
+      <p id="scan-progress" style="margin-top:10px;font-size:16px;color:#333;"></p>
+  </div>
+  <audio id="audio_player" controls></audio>
+  <div id="word-tooltip"></div>
 
-        // 新增: 动态获取 group 列表, 填充下拉框
-        const groupSelector = document.getElementById('groupSelector');
-        fetch('/get_groups')
-            .then(res => res.json())
-            .then(data => {
-                const groups = data.groups || [];
-                groups.forEach(g => {
-                    const opt = document.createElement('option');
-                    opt.value = g;
-                    opt.textContent = g;
-                    groupSelector.appendChild(opt);
-                });
-            })
-            .catch(err => console.error(err));
+  <script>
+    let isPlaying = false;
+    let playCount = 1;
+    let playInterval = 1000;
+    let currentPlay = 0;
+    let audioPlayer = document.getElementById('audio_player');
+    let toggleModeBtn = document.getElementById('toggleModeBtn');
+    let previousBtn = document.getElementById('previousBtn');
+    let nextBtn = document.getElementById('nextBtn');
+    let playCountBtn = document.getElementById('play-count-btn');
+    let playIntervalBtn = document.getElementById('play-interval-btn');
+    let translatedText = document.getElementById('translated-text');
+    let currentText = document.getElementById('current-text');
+    let wordTooltip = document.getElementById('word-tooltip');
 
-        // 新增: 当选中某个 group 后, 立即请求 set_group
-        groupSelector.addEventListener('change', () => {
-            const g = groupSelector.value;
-            window.location.href = '/set_group?group=' + encodeURIComponent(g);
-        });
+    let toggleEnglish = document.getElementById('toggleEnglish');
+    let toggleTranslation = document.getElementById('toggleTranslation');
 
-        fetch('/get_play_mode')
-            .then(response => response.json())
-            .then(data => {
-                if (data.play_mode === 'sequential') {
-                    toggleModeBtn.textContent = 'sequential';
-                    enableNavigationButtons();
-                } else if (data.play_mode === 'random') {
-                    toggleModeBtn.textContent = 'random';
-                    disableNavigationButtons();
-                }
-            })
-            .catch(error => {
-                console.error('Error fetching play mode:', error);
-            });
+    const groupSelector = document.getElementById('groupSelector');
 
-        fetch('/get_play_options')
-            .then(response => response.json())
-            .then(data => {
-                if (data.play_count) {
-                    playCount = data.play_count;
-                    playCountBtn.textContent = playCount;
-                }
-                if (data.play_interval) {
-                    playInterval = data.play_interval * 1000;
-                    playIntervalBtn.textContent = data.play_interval;
-                }
-            })
-            .catch(error => {
-                console.error('Error fetching play options:', error);
-            });
+    // 1. 获取所有可选组
+    fetch('/get_groups')
+    .then(res => res.json())
+    .then(data => {
+      const allGroups = data.groups || [];
+      allGroups.forEach(g => {
+        const opt = document.createElement('option');
+        opt.value = g;
+        opt.textContent = g;
+        groupSelector.appendChild(opt);
+      });
+      // 启用 multipleSelect
+      $('#groupSelector').multipleSelect({
+        placeholder: 'choose group(s)',
+        selectAll: false
+      });
+      // 2. 获取已保存的选组 name=index_top
+      return fetch('/get_setting_groups?name=index_top');
+    })
+    .then(res => res.json())
+    .then(data => {
+      if(data.status === 'success'){
+        const saved = data.groups || [];
+        $('#groupSelector').multipleSelect('setSelects', saved);
+      }
+    })
+    .catch(err => console.error(err));
 
-        toggleEnglish.addEventListener('change', function () {
-            if (this.checked) {
-                currentText.style.display = 'block';
-            } else {
-                currentText.style.display = 'none';
-            }
-        });
+    // 3. 一旦下拉选项变动 => 立即写入setting表 + 刷新页面
+    $('#groupSelector').on('change', function(){
+      const selectedVals = $('#groupSelector').multipleSelect('getSelects');
+      fetch('/set_setting_groups', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ name:'index_top', groups: selectedVals })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if(data.status !== 'success'){
+          console.error('failed to update index_top:', data.message);
+        }
+      })
+      .catch(error => console.error('Error updating index_top:', error));
+    });
 
-        toggleTranslation.addEventListener('change', function () {
-            if (this.checked) {
-                translatedText.style.display = 'block';
-            } else {
-                translatedText.style.display = 'none';
-            }
-        });
+    // 以下播放相关逻辑保持不变
+    fetch('/get_play_mode')
+      .then(response => response.json())
+      .then(data => {
+          if (data.play_mode === 'sequential') {
+              toggleModeBtn.textContent = 'sequential';
+              enableNavigationButtons();
+          } else if (data.play_mode === 'random') {
+              toggleModeBtn.textContent = 'random';
+              disableNavigationButtons();
+          }
+      })
+      .catch(error => {
+          console.error('Error fetching play mode:', error);
+      });
 
-        function updateText(text, sentenceIndex) {
-            currentText.innerHTML = '';
+    fetch('/get_play_options')
+      .then(response => response.json())
+      .then(data => {
+          if (data.play_count) {
+              playCount = data.play_count;
+              playCountBtn.textContent = playCount;
+          }
+          if (data.play_interval) {
+              playInterval = data.play_interval * 1000;
+              playIntervalBtn.textContent = data.play_interval;
+          }
+      })
+      .catch(error => {
+          console.error('Error fetching play options:', error);
+      });
 
-            const regex = /<(\w+):\s*([^>]+)>/g;
-            let lastIndex = 0;
-            let match;
+    toggleEnglish.addEventListener('change', function () {
+        currentText.style.display = this.checked ? 'block' : 'none';
+    });
+    toggleTranslation.addEventListener('change', function () {
+        translatedText.style.display = this.checked ? 'block' : 'none';
+    });
 
-            while ((match = regex.exec(text)) !== null) {
-                const [fullMatch, color, content] = match;
-                const start = match.index;
-                const end = regex.lastIndex;
-
-                if (start > lastIndex) {
-                    const plain_text_segment = text.substring(lastIndex, start).trim();
-                    const words = plain_text_segment.split(/\s+/);
-                    words.forEach(word => {
-                        if (word) {
-                            const span = document.createElement('span');
-                            span.classList.add('highlight');
-                            span.textContent = word;
-                            currentText.appendChild(span);
-                            currentText.appendChild(document.createTextNode(' '));
-                        }
-                    });
-                }
-
-                const coloredWords = content.split(/\s+/);
-                coloredWords.forEach(word => {
-                    if (word) {
-                        const span = document.createElement('span');
-                        span.classList.add('highlight', color.toLowerCase());
-                        span.textContent = word;
-                        currentText.appendChild(span);
-                        currentText.appendChild(document.createTextNode(' '));
-                    }
-                });
-
-                lastIndex = end;
-            }
-
-            if (lastIndex < text.length) {
-                const remaining_text = text.substring(lastIndex).trim();
-                const words = remaining_text.split(/\s+/);
+    function updateText(text, sentenceIndex) {
+        currentText.innerHTML = '';
+        const regex = /<(\w+):\s*([^>]+)>/g;
+        let lastIndex = 0;
+        let match;
+        while ((match = regex.exec(text)) !== null) {
+            const [fullMatch, color, content] = match;
+            const start = match.index;
+            const end = regex.lastIndex;
+            if (start > lastIndex) {
+                const plain_text_segment = text.substring(lastIndex, start).trim();
+                const words = plain_text_segment.split(/\s+/);
                 words.forEach(word => {
                     if (word) {
                         const span = document.createElement('span');
@@ -408,345 +376,348 @@
                     }
                 });
             }
-
-            translateText(text);
-            addWordClickEvents();
-        }
-
-        function translateText(text) {
-            fetch('/translate', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({text: text})
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    translatedText.innerText = `${data.translated_text}`;
-                } else if (data.status === 'missing_translation') {
-                    translatedText.innerText = 'The current text has no translation, please click the "scan new resource" button to generate translation resources.';
-                } else {
-                    translatedText.innerText = 'translate error。';
+            const coloredWords = content.split(/\s+/);
+            coloredWords.forEach(word => {
+                if (word) {
+                    const span = document.createElement('span');
+                    span.classList.add('highlight', color.toLowerCase());
+                    span.textContent = word;
+                    currentText.appendChild(span);
+                    currentText.appendChild(document.createTextNode(' '));
                 }
-            })
-            .catch(error => {
-                console.error('Error during translation:', error);
-                translatedText.innerText = 'translate error。';
             });
+            lastIndex = end;
         }
-
-        function togglePlayPause() {
-            const playPauseBtn = document.getElementById('playPauseBtn');
-            disableButton(playPauseBtn, 200);
-
-            if (!isPlaying) {
-                isPlaying = true;
-                playPauseBtn.textContent = '⏸';
-                playNext();
-            } else {
-                isPlaying = false;
-                audioPlayer.pause();
-                playPauseBtn.textContent = '▶️';
-            }
-        }
-
-        function playNext() {
-            if (!isPlaying) return;
-
-            fetch('/play', {method: 'POST'})
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    const audioUrl = data.audio_url;
-                    const text = data.text;
-                    const sentenceIndex = data.current_index;
-                    updateText(text, sentenceIndex);
-                    currentPlay = 0;
-
-                    function playLoop() {
-                        if (!isPlaying) return;
-
-                        audioPlayer.src = audioUrl;
-                        audioPlayer.style.display = 'block';
-                        audioPlayer.play();
-
-                        audioPlayer.onended = () => {
-                            currentPlay++;
-                            if (currentPlay < playCount) {
-                                setTimeout(playLoop, playInterval);
-                            } else {
-                                currentPlay = 0;
-                                setTimeout(() => {
-                                    moveToNextLine();
-                                }, playInterval);
-                            }
-                        };
-                    }
-
-                    playLoop();
-                } else if (data.status === 'no_more_text') {
-                    alert('no much more。');
-                    isPlaying = false;
-                    document.getElementById('playPauseBtn').textContent = '▶️';
-                }
-            })
-            .catch(error => {
-                console.error('Error during playNext:', error);
-            });
-        }
-
-        function moveToNextLine() {
-            fetch('/next', {method: 'POST'})
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    if (isPlaying) {
-                        playNext();
-                    }
-                } else if (data.status === 'no_more_text') {
-                    alert('no much more。');
-                    isPlaying = false;
-                    document.getElementById('playPauseBtn').textContent = '▶️';
-                }
-            })
-            .catch(error => {
-                console.error('Error during moveToNextLine:', error);
-            });
-        }
-
-        function setPlayOptions(playCountValue, playIntervalValue) {
-            fetch('/set_play_options', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: `play_count=${playCountValue}&play_interval=${playIntervalValue}`
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'options_set') {
-                    // ok
-                } else if (data.status === 'error') {
-                    alert(`error: ${data.message}`);
-                }
-            })
-            .catch(error => {
-                console.error('Error during setPlayOptions:', error);
-            });
-        }
-
-        function previousLine() {
-            fetch('/get_play_mode')
-            .then(response => response.json())
-            .then(data => {
-                if (data.play_mode === 'sequential') {
-                    fetch('/previous', {method: 'POST'})
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === 'success') {
-                            isPlaying = false;
-                            audioPlayer.pause();
-                            audioPlayer.style.display = 'none';
-                            document.getElementById('playPauseBtn').textContent = '▶️';
-
-                            isPlaying = true;
-                            document.getElementById('playPauseBtn').textContent = '⏸';
-                            playNext();
-                        } else {
-                            alert('have first。');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error during previousLine:', error);
-                    });
-                }
-            })
-            .catch(error => {
-                console.error('Error fetching play mode:', error);
-            });
-        }
-
-        function nextLine() {
-            fetch('/get_play_mode')
-            .then(response => response.json())
-            .then(data => {
-                if (data.play_mode === 'sequential') {
-                    fetch('/next', {method: 'POST'})
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === 'success') {
-                            isPlaying = false;
-                            audioPlayer.pause();
-                            audioPlayer.style.display = 'none';
-                            document.getElementById('playPauseBtn').textContent = '▶️';
-
-                            isPlaying = true;
-                            document.getElementById('playPauseBtn').textContent = '⏸';
-                            playNext();
-                        } else {
-                            alert('no much more。');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error during nextLine:', error);
-                    });
-                }
-            })
-            .catch(error => {
-                console.error('Error fetching play mode:', error);
-            });
-        }
-
-        function togglePlayMode() {
-            disableButton(toggleModeBtn, 200);
-
-            fetch('/toggle_play_mode', {method: 'POST'})
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'mode_toggled') {
-                    if (data.play_mode === 'sequential') {
-                        toggleModeBtn.textContent = 'sequential';
-                        enableNavigationButtons();
-                    } else if (data.play_mode === 'random') {
-                        toggleModeBtn.textContent = 'random';
-                        disableNavigationButtons();
-                    }
-                }
-            })
-            .catch(error => {
-                console.error('Error during togglePlayMode:', error);
-            });
-        }
-
-        function enableNavigationButtons() {
-            previousBtn.disabled = false;
-            nextBtn.disabled = false;
-        }
-
-        function disableNavigationButtons() {
-            previousBtn.disabled = true;
-            nextBtn.disabled = true;
-        }
-
-        function changePlayCount() {
-            playCount = playCount < 3 ? playCount + 1 : 1;
-            playCountBtn.textContent = playCount;
-            setPlayOptions(playCount, playInterval / 1000);
-        }
-
-        function changePlayInterval() {
-            playInterval = playInterval < 3000 ? playInterval + 1000 : 1000;
-            playIntervalBtn.textContent = playInterval / 1000;
-            setPlayOptions(playCount, playInterval / 1000);
-        }
-
-        function disableButton(button, duration) {
-            button.disabled = true;
-            setTimeout(() => {
-                button.disabled = false;
-            }, duration);
-        }
-
-        function scanTranslationAndAudio() {
-            const scanBtn = document.getElementById('scanTranslationAndAudio');
-            const scanProgress = document.getElementById('scan-progress');
-            disableButton(scanBtn, 200);
-
-            scanProgress.innerText = "开始扫描...";
-            const source = new EventSource('/scan_resources');
-
-            source.onmessage = function(event) {
-                const data = JSON.parse(event.data);
-                if (data.status === 'working') {
-                    scanProgress.innerText = `Resource being generated: ${data.current_index}/${data.total} (${data.progress.toFixed(2)}%)`;
-                } else if (data.status === 'done') {
-                    scanProgress.innerText = "Complete all resource generation。";
-                    source.close();
-                } else if (data.status === 'error') {
-                    scanProgress.innerText = "An error occurred during generation：" + data.message;
-                    source.close();
-                }
-            };
-
-            source.onerror = function() {
-                scanProgress.innerText = "连接中断或发生错误。";
-                source.close();
-            };
-        }
-
-        window.addEventListener('beforeunload', function () {
-            fetch('/stop', {method: 'POST'});
-        });
-
-        function addWordClickEvents() {
-            const words = currentText.querySelectorAll('.highlight');
+        if (lastIndex < text.length) {
+            const remaining_text = text.substring(lastIndex).trim();
+            const words = remaining_text.split(/\s+/);
             words.forEach(word => {
-                word.onclick = (e) => {
-                    e.stopPropagation();
-                    const text = word.textContent.trim();
-                    if (text) {
-                        fetch('/translate_word', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({text: text})
-                        })
-                        .then(response => response.json())
-                        .then(data => {
-                            let translation = 'No translation available';
-                            if (data.status === 'success') {
-                                translation = data.translated_text;
-                            } else if (data.status === 'missing_translation') {
-                                translation = 'No translation available';
-                            }
-                            showWordTooltip(word, translation);
-                        })
-                        .catch(error => {
-                            console.error('Error translating word:', error);
-                            showWordTooltip(word, 'Translation error。');
-                        });
-                    }
-                };
-            });
-        }
-
-        function showWordTooltip(wordElement, translation) {
-            wordTooltip.textContent = translation;
-            wordTooltip.style.display = 'block';
-
-            const rect = wordElement.getBoundingClientRect();
-            const bodyRect = document.body.getBoundingClientRect();
-
-            const left = rect.left - bodyRect.left + window.scrollX;
-            const top = rect.top - bodyRect.top + window.scrollY - wordTooltip.offsetHeight - 8;
-
-            wordTooltip.style.left = left + 'px';
-            wordTooltip.style.top = top + 'px';
-        }
-
-        document.addEventListener('click', (e) => {
-            if (!e.target.classList.contains('highlight')) {
-                wordTooltip.style.display = 'none';
-            }
-        });
-
-        function fetchCurrentText() {
-            fetch('/get_current_text', {method: 'GET'})
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success' && data.text && data.sentence_index !== -1) {
-                    updateText(data.text, data.sentence_index);
-                } else {
-                    console.error('Error fetching current text:', data.message);
+                if (word) {
+                    const span = document.createElement('span');
+                    span.classList.add('highlight');
+                    span.textContent = word;
+                    currentText.appendChild(span);
+                    currentText.appendChild(document.createTextNode(' '));
                 }
-            })
-            .catch(error => {
-                console.error('Error fetching current text:', error);
             });
         }
+        translateText(text);
+        addWordClickEvents();
+    }
 
-        window.onload = fetchCurrentText;
-    </script>
+    function translateText(text) {
+        fetch('/translate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({text: text})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                translatedText.innerText = data.translated_text;
+            } else if (data.status === 'missing_translation') {
+                translatedText.innerText = 'The current text has no translation, please click the "scan new resource" button to generate translation resources.';
+            } else {
+                translatedText.innerText = 'translate error。';
+            }
+        })
+        .catch(error => {
+            console.error('Error during translation:', error);
+            translatedText.innerText = 'translate error。';
+        });
+    }
+
+    function togglePlayPause() {
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        disableButton(playPauseBtn, 200);
+        if (!isPlaying) {
+            isPlaying = true;
+            playPauseBtn.textContent = '⏸';
+            playNext();
+        } else {
+            isPlaying = false;
+            audioPlayer.pause();
+            playPauseBtn.textContent = '▶️';
+        }
+    }
+
+    function playNext() {
+        if (!isPlaying) return;
+        fetch('/play', {method: 'POST'})
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                const audioUrl = data.audio_url;
+                const text = data.text;
+                const sentenceIndex = data.current_index;
+                updateText(text, sentenceIndex);
+                currentPlay = 0;
+                function playLoop() {
+                    if (!isPlaying) return;
+                    audioPlayer.src = audioUrl;
+                    audioPlayer.style.display = 'block';
+                    audioPlayer.play();
+                    audioPlayer.onended = () => {
+                        currentPlay++;
+                        if (currentPlay < playCount) {
+                            setTimeout(playLoop, playInterval);
+                        } else {
+                            currentPlay = 0;
+                            setTimeout(() => {
+                                moveToNextLine();
+                            }, playInterval);
+                        }
+                    };
+                }
+                playLoop();
+            } else if (data.status === 'no_more_text') {
+                alert('no much more。');
+                isPlaying = false;
+                document.getElementById('playPauseBtn').textContent = '▶️';
+            }
+        })
+        .catch(error => {
+            console.error('Error during playNext:', error);
+        });
+    }
+
+    function moveToNextLine() {
+        fetch('/next', {method: 'POST'})
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                if (isPlaying) {
+                    playNext();
+                }
+            } else if (data.status === 'no_more_text') {
+                alert('no much more。');
+                isPlaying = false;
+                document.getElementById('playPauseBtn').textContent = '▶️';
+            }
+        })
+        .catch(error => {
+            console.error('Error during moveToNextLine:', error);
+        });
+    }
+
+    function setPlayOptions(playCountValue, playIntervalValue) {
+        fetch('/set_play_options', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: `play_count=${playCountValue}&play_interval=${playIntervalValue}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status !== 'options_set') {
+                alert(`error: ${data.message}`);
+            }
+        })
+        .catch(error => {
+            console.error('Error during setPlayOptions:', error);
+        });
+    }
+
+    function previousLine() {
+        fetch('/get_play_mode')
+        .then(response => response.json())
+        .then(data => {
+            if (data.play_mode === 'sequential') {
+                fetch('/previous', {method: 'POST'})
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        isPlaying = false;
+                        audioPlayer.pause();
+                        audioPlayer.style.display = 'none';
+                        document.getElementById('playPauseBtn').textContent = '▶️';
+                        isPlaying = true;
+                        document.getElementById('playPauseBtn').textContent = '⏸';
+                        playNext();
+                    } else {
+                        alert('have first。');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error during previousLine:', error);
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching play mode:', error);
+        });
+    }
+
+    function nextLine() {
+        fetch('/get_play_mode')
+        .then(response => response.json())
+        .then(data => {
+            if (data.play_mode === 'sequential') {
+                fetch('/next', {method: 'POST'})
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        isPlaying = false;
+                        audioPlayer.pause();
+                        audioPlayer.style.display = 'none';
+                        document.getElementById('playPauseBtn').textContent = '▶️';
+                        isPlaying = true;
+                        document.getElementById('playPauseBtn').textContent = '⏸';
+                        playNext();
+                    } else {
+                        alert('no much more。');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error during nextLine:', error);
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching play mode:', error);
+        });
+    }
+
+    function togglePlayMode() {
+        disableButton(toggleModeBtn, 200);
+        fetch('/toggle_play_mode', {method: 'POST'})
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'mode_toggled') {
+                if (data.play_mode === 'sequential') {
+                    toggleModeBtn.textContent = 'sequential';
+                    enableNavigationButtons();
+                } else if (data.play_mode === 'random') {
+                    toggleModeBtn.textContent = 'random';
+                    disableNavigationButtons();
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error during togglePlayMode:', error);
+        });
+    }
+
+    function enableNavigationButtons() {
+        previousBtn.disabled = false;
+        nextBtn.disabled = false;
+    }
+    function disableNavigationButtons() {
+        previousBtn.disabled = true;
+        nextBtn.disabled = true;
+    }
+
+    function changePlayCount() {
+        playCount = playCount < 3 ? playCount + 1 : 1;
+        playCountBtn.textContent = playCount;
+        setPlayOptions(playCount, playInterval / 1000);
+    }
+    function changePlayInterval() {
+        playInterval = playInterval < 3000 ? playInterval + 1000 : 1000;
+        playIntervalBtn.textContent = playInterval / 1000;
+        setPlayOptions(playCount, playInterval / 1000);
+    }
+
+    function disableButton(button, duration) {
+        button.disabled = true;
+        setTimeout(() => {
+            button.disabled = false;
+        }, duration);
+    }
+
+    function scanTranslationAndAudio() {
+        const scanBtn = document.getElementById('scanTranslationAndAudio');
+        const scanProgress = document.getElementById('scan-progress');
+        disableButton(scanBtn, 200);
+        scanProgress.innerText = "开始扫描...";
+        const source = new EventSource('/scan_resources');
+        source.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            if (data.status === 'working') {
+                scanProgress.innerText = `Resource being generated: ${data.current_index}/${data.total} (${data.progress.toFixed(2)}%)`;
+            } else if (data.status === 'done') {
+                scanProgress.innerText = "Complete all resource generation。";
+                source.close();
+            } else if (data.status === 'error') {
+                scanProgress.innerText = "An error occurred during generation：" + data.message;
+                source.close();
+            }
+        };
+        source.onerror = function() {
+            scanProgress.innerText = "连接中断或发生错误。";
+            source.close();
+        };
+    }
+
+    window.addEventListener('beforeunload', function () {
+        fetch('/stop', {method: 'POST'});
+    });
+
+    function addWordClickEvents() {
+        const words = currentText.querySelectorAll('.highlight');
+        words.forEach(word => {
+            word.onclick = (e) => {
+                e.stopPropagation();
+                const text = word.textContent.trim();
+                if (text) {
+                    fetch('/translate_word', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({text: text})
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        let translation = 'No translation available';
+                        if (data.status === 'success') {
+                            translation = data.translated_text;
+                        } else if (data.status === 'missing_translation') {
+                            translation = 'No translation available';
+                        }
+                        showWordTooltip(word, translation);
+                    })
+                    .catch(error => {
+                        console.error('Error translating word:', error);
+                        showWordTooltip(word, 'Translation error。');
+                    });
+                }
+            };
+        });
+    }
+
+    function showWordTooltip(wordElement, translation) {
+        wordTooltip.textContent = translation;
+        wordTooltip.style.display = 'block';
+        const rect = wordElement.getBoundingClientRect();
+        const bodyRect = document.body.getBoundingClientRect();
+        const left = rect.left - bodyRect.left + window.scrollX;
+        const top = rect.top - bodyRect.top + window.scrollY - wordTooltip.offsetHeight - 8;
+        wordTooltip.style.left = left + 'px';
+        wordTooltip.style.top = top + 'px';
+    }
+
+    document.addEventListener('click', (e) => {
+        if (!e.target.classList.contains('highlight')) {
+            wordTooltip.style.display = 'none';
+        }
+    });
+
+    function fetchCurrentText() {
+        fetch('/get_current_text', {method: 'GET'})
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success' && data.text && data.sentence_index !== -1) {
+                updateText(data.text, data.sentence_index);
+            } else {
+                console.error('Error fetching current text:', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching current text:', error);
+        });
+    }
+
+    window.onload = fetchCurrentText;
+  </script>
 </body>
 </html>

@@ -1,10 +1,15 @@
-<!--edit.html-->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit Text File</title>
+
+    <!-- multipleSelect 插件CSS/JS (CDN示例) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/multiple-select@1.5.2/dist/multiple-select.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/multiple-select@1.5.2/dist/multiple-select.min.js"></script>
+
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -32,7 +37,6 @@
             font-size: 24px;
         }
 
-        /* 搜索框样式 */
         .search-box {
             margin-bottom: 15px;
             text-align: right;
@@ -69,21 +73,16 @@
             background-color: #357ABD;
         }
 
-        /* 分组选择下拉框 */
         .group-selection {
             margin-bottom: 15px;
             display: flex;
             align-items: center;
             gap: 10px;
         }
+
         .group-selection label {
             font-size: 16px;
             font-weight: bold;
-        }
-        .group-selection select {
-            min-width: 200px;
-            padding: 6px;
-            font-size: 14px;
         }
 
         table {
@@ -106,7 +105,6 @@
             position: relative;
         }
 
-        /* “直接删除”复选框样式 */
         .direct-delete-container {
             position: absolute;
             right: 10px;
@@ -178,7 +176,6 @@
             box-shadow: none;
         }
 
-        /* 新增按钮样式 */
         .control-btn {
             background-color: #4A90E2;
             border: none;
@@ -195,7 +192,6 @@
             background-color: #357ABD;
         }
 
-        /* 新增的“批量删除”按钮样式 */
         .batch-delete-btn {
             background-color: #E94B3C;
         }
@@ -204,7 +200,6 @@
             background-color: #C13C2E;
         }
 
-        /* 分页样式 */
         .pagination {
             display: flex;
             justify-content: center;
@@ -242,7 +237,6 @@
             pointer-events: none;
         }
 
-        /* 页码输入框样式 */
         .pagination form {
             display: flex;
             align-items: center;
@@ -260,7 +254,6 @@
             font-size: 14px;
         }
 
-        /* Modal 样式 */
         .modal {
             display: none;
             position: fixed;
@@ -270,7 +263,7 @@
             width: 100%;
             height: 100%;
             overflow: auto;
-            background-color: rgba(0,0,0,0.4);
+            background-color: rgba(0, 0, 0, 0.4);
         }
 
         .modal-content {
@@ -281,7 +274,7 @@
             width: 90%;
             max-width: 400px;
             border-radius: 8px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
             text-align: center;
         }
 
@@ -319,7 +312,6 @@
             background-color: #999;
         }
 
-        /* 搜索框响应式调整 */
         @media (max-width: 600px) {
             .search-box form {
                 flex-direction: column;
@@ -348,7 +340,6 @@
                 font-size: 12px;
             }
 
-            /* 调整页码输入框和按钮 */
             .pagination form {
                 display: flex;
                 align-items: center;
@@ -366,289 +357,269 @@
                 font-size: 12px;
             }
         }
-
-        /* 非响应式调整 */
-        @media (min-width: 601px) {
-            /* 调整页码输入框和按钮 */
-            .pagination form {
-                display: flex;
-                align-items: center;
-                gap: 5px;
-            }
-
-            .pagination form input[type="number"] {
-                width: 60px;
-                padding: 5px;
-                font-size: 14px;
-            }
-
-            .pagination form button {
-                padding: 5px 10px;
-                font-size: 14px;
-            }
-        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Edit Text File</h1>
+<div class="container">
+    <h1>Edit Text File</h1>
 
-        <!-- 新增：分组多选下拉以及“设置 combined training”单选下拉 -->
-        <div class="group-selection">
-            <form method="GET" action="{{ url_for('edit_file.edit') }}" style="margin:0; display:flex; align-items: center; gap:10px;">
-                <label>choose group(s):</label>
-                <select name="groups" multiple size="4">
-                    {% for gname in group_names %}
-                        <option value="{{gname}}"
-                            {% if gname in selected_groups %}
-                                selected
-                            {% endif %}
-                        >{{gname}}</option>
-                    {% endfor %}
-                </select>
-                <input type="hidden" name="search" value="{{ search_query }}">
-                <button type="submit" class="control-btn">OK</button>
-            </form>
+    <div class="group-selection">
+        <!-- choose group(s) => name=edit_choose, 移除OK按钮，一旦选中就写入并刷新页面 -->
+        <label>choose group(s):</label>
+        <select id="editChooseSelect" name="groups" multiple="multiple"></select>
 
-            <!-- 设置 combined training 的下拉框和按钮 -->
-            <form method="GET" action="/mixed_training_setup" style="margin:0; display:flex; align-items: center; gap:10px;">
-                <label>combined training group:</label>
-                <select name="group">
-                    <option value="">all lines</option>
-                    {% for gname in group_names %}
-                        <option value="{{gname}}">{{gname}}</option>
-                    {% endfor %}
-                </select>
-                <button type="submit" class="control-btn">go</button>
-            </form>
-        </div>
+        <!-- combined training group => name=combined_training, 同理移除“ok”按钮 -->
+        <label>combined training group:</label>
+        <select id="combinedTrainingSelect" name="groups" multiple="multiple"></select>
+    </div>
 
-        <!-- 修改后的搜索框 -->
-        <div class="search-box">
-            <form method="GET" action="{{ url_for('edit_file.edit') }}">
-                <!-- 保留多选组信息 -->
-                {% for sg in selected_groups %}
-                    <input type="hidden" name="groups" value="{{sg}}">
-                {% endfor %}
-                <input type="text" id="searchInput" name="search" placeholder="search text..." value="{{ search_query }}">
-                <button type="submit">search</button>
-            </form>
-        </div>
-
-        <table id="textTable">
-            <tr>
-                <th>
-                    <input type="checkbox" id="selectAllCheckbox" title="全选/全不选">
-                </th>
-                <th>line number</th>
-                <th>text</th>
-                <th>translation</th>
-                <th>
-                    操作
-                    <!-- 直接删除[√] 复选框放在“操作”列的表头右侧 -->
-                    <div class="direct-delete-container">
-                        <input type="checkbox" id="directDeleteCheckbox">
-                        <label for="directDeleteCheckbox">directly delete</label>
-                    </div>
-                </th>
-            </tr>
-            {% for line, translation in lines %}
-            <tr>
-                <td>
-                    <input type="checkbox" class="select-checkbox" name="selected_lines" value="{{ loop.index + (current_page - 1) * 4 }}">
-                </td>
-                <td>{{ loop.index + (current_page - 1) * 4 }}</td>
-                <td class="line-text">{{ line }}</td>
-                <td class="translation-text">{{ translation }}</td>
-                <td>
-                    <!-- 删除按钮 -->
-                    <button type="button" class="control-btn delete-btn" data-line-number="{{ loop.index + (current_page - 1) * 4 }}">删除</button>
-                    <!-- 更新按钮及输入框 -->
-                    <form method="POST" style="display:inline; margin-left: 10px;">
-                        <input type="hidden" name="action" value="update">
-                        <input type="hidden" name="line_number" value="{{ loop.index + (current_page - 1) * 4 }}">
-                        <input type="text" name="updated_text" value="{{ line }}" required style="width: 150px; padding: 5px; margin-right: 5px;">
-                        <input type="text" name="updated_translation" value="{{ translation }}" required style="width: 200px; padding: 5px; margin-right: 5px;">
-                        <button type="submit" class="control-btn">更新</button>
-                    </form>
-                </td>
-            </tr>
-            {% endfor %}
-        </table>
-
-        <!-- 批量删除按钮 -->
-        <div class="buttons">
-            <button type="button" class="control-btn batch-delete-btn" id="deleteSelectedBtn">delete choose</button>
-        </div>
-
-        <!-- 分页控件 -->
-        <div class="pagination">
-            {% if current_page > 1 %}
-                <a href="{{ url_for('edit_file.edit', page=1, search=search_query, groups=selected_groups) }}">&laquo; first</a>
-                <a href="{{ url_for('edit_file.edit', page=current_page - 1, search=search_query, groups=selected_groups) }}">&lt; last</a>
-            {% else %}
-                <span class="disabled">&laquo; first</span>
-                <span class="disabled">&lt; last</span>
-            {% endif %}
-
-            {% if total_pages <= 4 %}
-                {% for page in range(1, total_pages + 1) %}
-                    {% if page == current_page %}
-                        <span class="active">{{ page }}</span>
-                    {% else %}
-                        <a href="{{ url_for('edit_file.edit', page=page, search=search_query, groups=selected_groups) }}">{{ page }}</a>
-                    {% endif %}
-                {% endfor %}
-            {% else %}
-                {% for page in range(1, 3) %}
-                    {% if page == current_page %}
-                        <span class="active">{{ page }}</span>
-                    {% else %}
-                        <a href="{{ url_for('edit_file.edit', page=page, search=search_query, groups=selected_groups) }}">{{ page }}</a>
-                    {% endif %}
-                {% endfor %}
-                {% if current_page > 3 and current_page < total_pages - 1 %}
-                    <span>...</span>
-                {% elif current_page == 3 %}
-                    <a href="{{ url_for('edit_file.edit', page=3, search=search_query, groups=selected_groups) }}">3</a>
-                {% elif current_page == total_pages - 1 %}
-                    <a href="{{ url_for('edit_file.edit', page=total_pages - 1, search=search_query, groups=selected_groups) }}">{{ total_pages - 1 }}</a>
-                {% endif %}
-                {% if current_page != total_pages and total_pages > 2 %}
-                    <a href="{{ url_for('edit_file.edit', page=total_pages, search=search_query, groups=selected_groups) }}">{{ total_pages }}</a>
-                {% endif %}
-            {% endif %}
-
-            {% if current_page < total_pages %}
-                <a href="{{ url_for('edit_file.edit', page=current_page + 1, search=search_query, groups=selected_groups) }}">next&gt;</a>
-                <a href="{{ url_for('edit_file.edit', page=total_pages, search=search_query, groups=selected_groups) }}">final&raquo;</a>
-            {% else %}
-                <span class="disabled">next&gt;</span>
-                <span class="disabled">final&raquo;</span>
-            {% endif %}
-
-            <!-- 页码输入框和确定按钮 -->
-            <form method="GET" action="{{ url_for('edit_file.edit') }}">
-                <input type="number" name="page" min="1" max="{{ total_pages }}" placeholder="page num" required>
-                <!-- 保留多选组信息 -->
-                {% for sg in selected_groups %}
-                    <input type="hidden" name="groups" value="{{sg}}">
-                {% endfor %}
-                <input type="hidden" name="search" value="{{ search_query }}">
-                <button type="submit" class="control-btn">确定</button>
-            </form>
-        </div>
-
-        <form method="POST" action="{{ url_for('edit_file.edit', page=current_page, search=search_query) }}">
-            <!-- 保留多选组信息 -->
+    <div class="search-box">
+        <form method="GET" action="{{ url_for('edit_file.edit') }}">
             {% for sg in selected_groups %}
-                <input type="hidden" name="groups" value="{{sg}}">
+            <input type="hidden" name="groups" value="{{sg}}">
             {% endfor %}
-            <div class="form-group">
-                <label for="new_line">content（support multiply line, one line one data）：</label>
-                <textarea id="new_line" name="new_line" rows="5" required></textarea>
-            </div>
-            <input type="hidden" name="action" value="add">
-            <button type="submit" class="control-btn">add</button>
+            <input type="text" id="searchInput" name="search" placeholder="search text..." value="{{ search_query }}">
+            <button type="submit">search</button>
         </form>
-
-        <div style="text-align: center; margin-top: 20px;">
-            <button class="control-btn" onclick="window.location.href='/language'">back main page</button>
-        </div>
     </div>
 
-    <!-- 删除确认模态框 -->
-    <div id="deleteModal" class="modal">
-        <div class="modal-content">
-            <h3>确认删除</h3>
-            <p id="modalMessage">您确定要删除吗？</p>
-            <form id="deleteForm" method="POST">
-                <input type="hidden" name="action" id="modalAction" value="">
-                <div id="modalLineNumbers">
-                    <!-- 动态填充行号 -->
+    <table id="textTable">
+        <tr>
+            <th>
+                <input type="checkbox" id="selectAllCheckbox" title="全选/全不选">
+            </th>
+            <th>line number</th>
+            <th>text</th>
+            <th>translation</th>
+            <th>
+                操作
+                <div class="direct-delete-container">
+                    <input type="checkbox" id="directDeleteCheckbox">
+                    <label for="directDeleteCheckbox">directly delete</label>
                 </div>
-                <div class="modal-buttons">
-                    <button type="submit" class="confirm-btn">确认</button>
-                    <button type="button" class="cancel-btn" onclick="closeModal()">取消</button>
-                </div>
-            </form>
-        </div>
+            </th>
+        </tr>
+        {% for line, translation in lines %}
+        <tr>
+            <td>
+                <input type="checkbox" class="select-checkbox" name="selected_lines"
+                       value="{{ loop.index + (current_page - 1) * 4 }}">
+            </td>
+            <td>{{ loop.index + (current_page - 1) * 4 }}</td>
+            <td class="line-text">{{ line }}</td>
+            <td class="translation-text">{{ translation }}</td>
+            <td>
+                <button type="button" class="control-btn delete-btn"
+                        data-line-number="{{ loop.index + (current_page - 1) * 4 }}">删除
+                </button>
+                <form method="POST" style="display:inline; margin-left: 10px;">
+                    <input type="hidden" name="action" value="update">
+                    <input type="hidden" name="line_number" value="{{ loop.index + (current_page - 1) * 4 }}">
+                    <input type="text" name="updated_text" value="{{ line }}" required
+                           style="width: 150px; padding: 5px; margin-right: 5px;">
+                    <input type="text" name="updated_translation" value="{{ translation }}" required
+                           style="width: 200px; padding: 5px; margin-right: 5px;">
+                    <button type="submit" class="control-btn">更新</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <div class="buttons">
+        <button type="button" class="control-btn batch-delete-btn" id="deleteSelectedBtn">delete choose</button>
     </div>
 
-    <script>
-        // 获取模态框元素
-        const modal = document.getElementById('deleteModal');
-        const deleteButtons = document.querySelectorAll('.delete-btn');
-        const modalLineNumbers = document.getElementById('modalLineNumbers');
-        const modalAction = document.getElementById('modalAction');
-        const modalMessage = document.getElementById('modalMessage');
-        const directDeleteCheckbox = document.getElementById('directDeleteCheckbox');
-        const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
-        const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    <div class="pagination">
+        {% if current_page > 1 %}
+        <a href="{{ url_for('edit_file.edit', page=1, search=search_query, groups=selected_groups) }}">&laquo; first</a>
+        <a href="{{ url_for('edit_file.edit', page=current_page - 1, search=search_query, groups=selected_groups) }}">&lt;
+            last</a>
+        {% else %}
+        <span class="disabled">&laquo; first</span>
+        <span class="disabled">&lt; last</span>
+        {% endif %}
 
-        // 为每个删除按钮添加点击事件监听器
-        deleteButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                const lineNumber = button.getAttribute('data-line-number');
-                if (directDeleteCheckbox.checked) {
-                    // 直接删除，无需弹出模态框
-                    const tempForm = document.createElement('form');
-                    tempForm.method = 'POST';
-                    tempForm.action = "{{ url_for('edit_file.edit', page=current_page, search=search_query, groups=selected_groups) }}";
+        {% if total_pages <= 4 %}
+        {% for page in range(1, total_pages + 1) %}
+        {% if page == current_page %}
+        <span class="active">{{ page }}</span>
+        {% else %}
+        <a href="{{ url_for('edit_file.edit', page=page, search=search_query, groups=selected_groups) }}">{{ page }}</a>
+        {% endif %}
+        {% endfor %}
+        {% else %}
+        {% for page in range(1, 3) %}
+        {% if page == current_page %}
+        <span class="active">{{ page }}</span>
+        {% else %}
+        <a href="{{ url_for('edit_file.edit', page=page, search=search_query, groups=selected_groups) }}">{{ page }}</a>
+        {% endif %}
+        {% endfor %}
+        {% if current_page > 3 and current_page < total_pages - 1 %}
+        <span>...</span>
+        {% elif current_page == 3 %}
+        <a href="{{ url_for('edit_file.edit', page=3, search=search_query, groups=selected_groups) }}">3</a>
+        {% elif current_page == total_pages - 1 %}
+        <a href="{{ url_for('edit_file.edit', page=total_pages - 1, search=search_query, groups=selected_groups) }}">{{
+            total_pages - 1 }}</a>
+        {% endif %}
+        {% if current_page != total_pages and total_pages > 2 %}
+        <a href="{{ url_for('edit_file.edit', page=total_pages, search=search_query, groups=selected_groups) }}">{{
+            total_pages }}</a>
+        {% endif %}
+        {% endif %}
 
-                    const actionInput = document.createElement('input');
-                    actionInput.type = 'hidden';
-                    actionInput.name = 'action';
-                    actionInput.value = 'delete';
-                    tempForm.appendChild(actionInput);
+        {% if current_page < total_pages %}
+        <a href="{{ url_for('edit_file.edit', page=current_page + 1, search=search_query, groups=selected_groups) }}">next&gt;</a>
+        <a href="{{ url_for('edit_file.edit', page=total_pages, search=search_query, groups=selected_groups) }}">final&raquo;</a>
+        {% else %}
+        <span class="disabled">next&gt;</span>
+        <span class="disabled">final&raquo;</span>
+        {% endif %}
 
-                    const lineNumberInput = document.createElement('input');
-                    lineNumberInput.type = 'hidden';
-                    lineNumberInput.name = 'line_number';
-                    lineNumberInput.value = lineNumber;
-                    tempForm.appendChild(lineNumberInput);
+        <form method="GET" action="{{ url_for('edit_file.edit') }}">
+            <input type="number" name="page" min="1" max="{{ total_pages }}" placeholder="page num" required>
+            {% for sg in selected_groups %}
+            <input type="hidden" name="groups" value="{{sg}}">
+            {% endfor %}
+            <input type="hidden" name="search" value="{{ search_query }}">
+            <button type="submit" class="control-btn">确定</button>
+        </form>
+    </div>
 
-                    document.body.appendChild(tempForm);
-                    tempForm.submit();
-                } else {
-                    modalAction.value = 'delete';
-                    modalLineNumbers.innerHTML = `<input type="hidden" name="line_number" value="${lineNumber}">`;
-                    modalMessage.innerText = 'did you want delete this row?';
-                    openModal();
+    <form method="POST" action="{{ url_for('edit_file.edit', page=current_page, search=search_query) }}">
+        {% for sg in selected_groups %}
+        <input type="hidden" name="groups" value="{{sg}}">
+        {% endfor %}
+        <div class="form-group">
+            <label for="new_line">content（support multiply line, one line one data）：</label>
+            <textarea id="new_line" name="new_line" rows="5" required></textarea>
+        </div>
+        <input type="hidden" name="action" value="add">
+        <button type="submit" class="control-btn">add</button>
+    </form>
+
+    <div style="text-align: center; margin-top: 20px;">
+        <button class="control-btn" onclick="window.location.href='/language'">back main page</button>
+    </div>
+</div>
+
+<!-- 删除确认模态框 -->
+<div id="deleteModal" class="modal">
+    <div class="modal-content">
+        <h3>确认删除</h3>
+        <p id="modalMessage">您确定要删除吗？</p>
+        <form id="deleteForm" method="POST">
+            <input type="hidden" name="action" id="modalAction" value="">
+            <div id="modalLineNumbers"></div>
+            <div class="modal-buttons">
+                <button type="submit" class="confirm-btn">确认</button>
+                <button type="button" class="cancel-btn" onclick="closeModal()">取消</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // 一旦选择就写入DB并刷新
+    $(document).ready(function () {
+        // 1. 获取可选group
+        fetch('/get_groups')
+            .then(res => res.json())
+            .then(data => {
+                const allGroups = data.groups || [];
+                const chooseSelect = document.getElementById('editChooseSelect');
+                const trainingSelect = document.getElementById('combinedTrainingSelect');
+                allGroups.forEach(g => {
+                    const opt1 = document.createElement('option');
+                    opt1.value = g;
+                    opt1.textContent = g;
+                    chooseSelect.appendChild(opt1);
+
+                    const opt2 = document.createElement('option');
+                    opt2.value = g;
+                    opt2.textContent = g;
+                    trainingSelect.appendChild(opt2);
+                });
+                // multipleSelect
+                $('#editChooseSelect').multipleSelect({
+                    placeholder: 'choose group(s)',
+                    selectAll: false
+                });
+                $('#combinedTrainingSelect').multipleSelect({
+                    placeholder: 'combined training group',
+                    selectAll: false
+                });
+                // 2. 获取已保存 name=edit_choose
+                return fetch('/get_setting_groups?name=edit_choose');
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const saved = data.groups || [];
+                    $('#editChooseSelect').multipleSelect('setSelects', saved);
                 }
-            });
+                // 再获取 name=combined_training
+                return fetch('/get_setting_groups?name=combined_training');
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const saved = data.groups || [];
+                    $('#combinedTrainingSelect').multipleSelect('setSelects', saved);
+                }
+            })
+            .catch(err => console.error(err));
+
+        // 当 editChooseSelect 变动 => /set_setting_groups, 然后刷新页面
+        $('#editChooseSelect').on('change', function () {
+            const selectedVals = $('#editChooseSelect').multipleSelect('getSelects');
+            fetch('/set_setting_groups', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({name: 'edit_choose', groups: selectedVals})
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status !== 'success') {
+                        console.error('failed to update edit_choose:', data.message);
+                    }
+                })
+                .catch(error => console.error('Error updating edit_choose:', error));
         });
 
-        function openModal() {
-            modal.style.display = 'block';
-        }
+        // 当 combinedTrainingSelect 变动 => /set_setting_groups, 然后刷新页面
+        $('#combinedTrainingSelect').on('change', function () {
+            const selectedVals = $('#combinedTrainingSelect').multipleSelect('getSelects');
+            fetch('/set_setting_groups', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({name: 'combined_training', groups: selectedVals})
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        console.error('failed to update combined_training:', data.message);
+                    }
+                })
+                .catch(error => console.error('Error updating combined_training:', error));
+        });
+    });
 
-        function closeModal() {
-            modal.style.display = 'none';
-            modalLineNumbers.innerHTML = '';
-            modalAction.value = '';
-            modalMessage.innerText = 'sure?';
-        }
+    // 删除相关逻辑
+    const modal = document.getElementById('deleteModal');
+    const deleteButtons = document.querySelectorAll('.delete-btn');
+    const modalLineNumbers = document.getElementById('modalLineNumbers');
+    const modalAction = document.getElementById('modalAction');
+    const modalMessage = document.getElementById('modalMessage');
+    const directDeleteCheckbox = document.getElementById('directDeleteCheckbox');
+    const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
 
-        window.onclick = function(event) {
-            if (event.target == modal) {
-                closeModal();
-            }
-        }
-
-        deleteSelectedBtn.addEventListener('click', () => {
-            const selectedCheckboxes = document.querySelectorAll('.select-checkbox:checked');
-            const selectedCount = selectedCheckboxes.length;
-
-            if (selectedCount === 0) {
-                modalAction.value = '';
-                modalLineNumbers.innerHTML = '';
-                modalMessage.innerText = 'at least 1';
-                openModal();
-                return;
-            }
-
-            const selectedLines = Array.from(selectedCheckboxes).map(cb => cb.value);
+    deleteButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const lineNumber = button.getAttribute('data-line-number');
             if (directDeleteCheckbox.checked) {
                 const tempForm = document.createElement('form');
                 tempForm.method = 'POST';
@@ -657,35 +628,91 @@
                 const actionInput = document.createElement('input');
                 actionInput.type = 'hidden';
                 actionInput.name = 'action';
-                actionInput.value = 'delete_selected';
+                actionInput.value = 'delete';
                 tempForm.appendChild(actionInput);
 
-                selectedLines.forEach(lineNumber => {
-                    const lineNumberInput = document.createElement('input');
-                    lineNumberInput.type = 'hidden';
-                    lineNumberInput.name = 'selected_lines';
-                    lineNumberInput.value = lineNumber;
-                    tempForm.appendChild(lineNumberInput);
-                });
+                const lineNumberInput = document.createElement('input');
+                lineNumberInput.type = 'hidden';
+                lineNumberInput.name = 'line_number';
+                lineNumberInput.value = lineNumber;
+                tempForm.appendChild(lineNumberInput);
 
                 document.body.appendChild(tempForm);
                 tempForm.submit();
             } else {
-                modalAction.value = 'delete_selected';
-                modalLineNumbers.innerHTML = selectedLines.map(lineNumber =>
-                    `<input type="hidden" name="selected_lines" value="${lineNumber}">`
-                ).join('');
-                modalMessage.innerText = `sure to delete ${selectedCount} ?`;
+                modalAction.value = 'delete';
+                modalLineNumbers.innerHTML = `<input type="hidden" name="line_number" value="${lineNumber}">`;
+                modalMessage.innerText = 'did you want delete this row?';
                 openModal();
             }
         });
+    });
 
-        selectAllCheckbox.addEventListener('change', () => {
-            const checkboxes = document.querySelectorAll('.select-checkbox');
-            checkboxes.forEach(cb => {
-                cb.checked = selectAllCheckbox.checked;
+    function openModal() {
+        modal.style.display = 'block';
+    }
+
+    function closeModal() {
+        modal.style.display = 'none';
+        modalLineNumbers.innerHTML = '';
+        modalAction.value = '';
+        modalMessage.innerText = 'sure?';
+    }
+
+    window.onclick = function (event) {
+        if (event.target == modal) {
+            closeModal();
+        }
+    }
+
+    deleteSelectedBtn.addEventListener('click', () => {
+        const selectedCheckboxes = document.querySelectorAll('.select-checkbox:checked');
+        const selectedCount = selectedCheckboxes.length;
+        if (selectedCount === 0) {
+            modalAction.value = '';
+            modalLineNumbers.innerHTML = '';
+            modalMessage.innerText = 'at least 1';
+            openModal();
+            return;
+        }
+        const selectedLines = Array.from(selectedCheckboxes).map(cb => cb.value);
+        if (directDeleteCheckbox.checked) {
+            const tempForm = document.createElement('form');
+            tempForm.method = 'POST';
+            tempForm.action = "{{ url_for('edit_file.edit', page=current_page, search=search_query, groups=selected_groups) }}";
+
+            const actionInput = document.createElement('input');
+            actionInput.type = 'hidden';
+            actionInput.name = 'action';
+            actionInput.value = 'delete_selected';
+            tempForm.appendChild(actionInput);
+
+            selectedLines.forEach(lineNumber => {
+                const lineNumberInput = document.createElement('input');
+                lineNumberInput.type = 'hidden';
+                lineNumberInput.name = 'selected_lines';
+                lineNumberInput.value = lineNumber;
+                tempForm.appendChild(lineNumberInput);
             });
+
+            document.body.appendChild(tempForm);
+            tempForm.submit();
+        } else {
+            modalAction.value = 'delete_selected';
+            modalLineNumbers.innerHTML = selectedLines.map(lineNumber =>
+                `<input type="hidden" name="selected_lines" value="${lineNumber}">`
+            ).join('');
+            modalMessage.innerText = `sure to delete ${selectedCount} ?`;
+            openModal();
+        }
+    });
+
+    selectAllCheckbox.addEventListener('change', () => {
+        const checkboxes = document.querySelectorAll('.select-checkbox');
+        checkboxes.forEach(cb => {
+            cb.checked = selectAllCheckbox.checked;
         });
-    </script>
+    });
+</script>
 </body>
 </html>

@@ -1,5 +1,3 @@
-# sql_queries.py
-
 #####################
 # store表相关SQL
 #####################
@@ -73,7 +71,18 @@ DELETE_TRANSLATION_BY_ORIGINAL = """
 """
 
 #####################
-# 其他可能的SQL...
+# setting表相关SQL (新增)
 #####################
 
+UPSERT_SETTING = """
+    INSERT INTO setting (name, selected_groups)
+         VALUES (%s, %s)
+    ON CONFLICT (name)
+    DO UPDATE SET selected_groups = EXCLUDED.selected_groups
+"""
 
+SELECT_SETTING_BY_NAME = """
+    SELECT selected_groups FROM setting
+     WHERE name = %s
+     LIMIT 1
+"""
