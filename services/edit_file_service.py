@@ -1,5 +1,3 @@
-# services/edit_file_service.py
-
 import hashlib
 import os
 from dao.store_dao import (
@@ -32,12 +30,12 @@ def read_all_store():
     return select_all_store()
 
 
-def insert_new_lines(new_lines):
+def insert_new_lines(new_lines, group_name=''):
     """
-    无法确定插入到哪个分组，暂使用 group_name=''
+    新增插入时，带上指定的group_name
     """
     for nl in new_lines:
-        insert_store('', nl)
+        insert_store(group_name, nl)
 
 
 def remove_line_by_text(text):

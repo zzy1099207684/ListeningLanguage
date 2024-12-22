@@ -433,8 +433,7 @@
     <div class="pagination">
         {% if current_page > 1 %}
         <a href="{{ url_for('edit_file.edit', page=1, search=search_query, groups=selected_groups) }}">&laquo; first</a>
-        <a href="{{ url_for('edit_file.edit', page=current_page - 1, search=search_query, groups=selected_groups) }}">&lt;
-            last</a>
+        <a href="{{ url_for('edit_file.edit', page=current_page - 1, search=search_query, groups=selected_groups) }}">&lt; last</a>
         {% else %}
         <span class="disabled">&laquo; first</span>
         <span class="disabled">&lt; last</span>
@@ -461,12 +460,10 @@
         {% elif current_page == 3 %}
         <a href="{{ url_for('edit_file.edit', page=3, search=search_query, groups=selected_groups) }}">3</a>
         {% elif current_page == total_pages - 1 %}
-        <a href="{{ url_for('edit_file.edit', page=total_pages - 1, search=search_query, groups=selected_groups) }}">{{
-            total_pages - 1 }}</a>
+        <a href="{{ url_for('edit_file.edit', page=total_pages - 1, search=search_query, groups=selected_groups) }}">{{ total_pages - 1 }}</a>
         {% endif %}
         {% if current_page != total_pages and total_pages > 2 %}
-        <a href="{{ url_for('edit_file.edit', page=total_pages, search=search_query, groups=selected_groups) }}">{{
-            total_pages }}</a>
+        <a href="{{ url_for('edit_file.edit', page=total_pages, search=search_query, groups=selected_groups) }}">{{ total_pages }}</a>
         {% endif %}
         {% endif %}
 
@@ -488,6 +485,7 @@
         </form>
     </div>
 
+    <!-- 新增的表单部分：在新增多行文本时，带上分组下拉框 -->
     <form method="POST" action="{{ url_for('edit_file.edit', page=current_page, search=search_query) }}">
         {% for sg in selected_groups %}
         <input type="hidden" name="groups" value="{{sg}}">
@@ -497,7 +495,16 @@
             <textarea id="new_line" name="new_line" rows="5" required></textarea>
         </div>
         <input type="hidden" name="action" value="add">
-        <button type="submit" class="control-btn">add</button>
+        <div style="margin-top: 10px;">
+            <button type="submit" class="control-btn">add</button>
+            <label for="new_group" style="margin-left:10px;">Group:</label>
+            <select id="new_group" name="new_group">
+                <option value="">(空)</option>
+                {% for g in group_names %}
+                <option value="{{ g }}">{{ g }}</option>
+                {% endfor %}
+            </select>
+        </div>
     </form>
 
     <div style="text-align: center; margin-top: 20px;">
@@ -522,7 +529,6 @@
 </div>
 
 <script>
-    // 一旦选择就写入DB并刷新
     $(document).ready(function () {
         // 1. 获取可选group
         fetch('/get_groups')
@@ -531,6 +537,7 @@
                 const allGroups = data.groups || [];
                 const chooseSelect = document.getElementById('editChooseSelect');
                 const trainingSelect = document.getElementById('combinedTrainingSelect');
+
                 allGroups.forEach(g => {
                     const opt1 = document.createElement('option');
                     opt1.value = g;
@@ -542,15 +549,40 @@
                     opt2.textContent = g;
                     trainingSelect.appendChild(opt2);
                 });
-                // multipleSelect
+
+                // multipleSelect for editChooseSelect
                 $('#editChooseSelect').multipleSelect({
                     placeholder: 'choose group(s)',
-                    selectAll: false
+                    selectAll: false,
+                    // 仅在用户收起(关闭)下拉框后再统一调用后端 & 刷新页面，避免频繁刷新
+                    onClose: function() {
+                        const selectedVals = $('#editChooseSelect').multipleSelect('getSelects');
+                        fetch('/set_setting_groups', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({name: 'edit_choose', groups: selectedVals})
+                        })
+                            .then(res => res.json())
+                            .then(data => {
+                                if (data.status === 'success') {
+                                    const queryParams = new URLSearchParams(window.location.search);
+                                    queryParams.delete('groups');
+                                    selectedVals.forEach(g => queryParams.append('groups', g));
+                                    window.location.search = queryParams.toString();
+                                } else {
+                                    console.error('failed to update edit_choose:', data.message);
+                                }
+                            })
+                            .catch(error => console.error('Error updating edit_choose:', error));
+                    }
                 });
+
+                // multipleSelect for combinedTrainingSelect
                 $('#combinedTrainingSelect').multipleSelect({
                     placeholder: 'combined training group',
                     selectAll: false
                 });
+
                 // 2. 获取已保存 name=edit_choose
                 return fetch('/get_setting_groups?name=edit_choose');
             })
@@ -571,40 +603,6 @@
                 }
             })
             .catch(err => console.error(err));
-
-        // 当 editChooseSelect 变动 => /set_setting_groups, 然后刷新页面
-        $('#editChooseSelect').on('change', function () {
-            const selectedVals = $('#editChooseSelect').multipleSelect('getSelects');
-            fetch('/set_setting_groups', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({name: 'edit_choose', groups: selectedVals})
-            })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.status !== 'success') {
-                        console.error('failed to update edit_choose:', data.message);
-                    }
-                })
-                .catch(error => console.error('Error updating edit_choose:', error));
-        });
-
-        // 当 combinedTrainingSelect 变动 => /set_setting_groups, 然后刷新页面
-        $('#combinedTrainingSelect').on('change', function () {
-            const selectedVals = $('#combinedTrainingSelect').multipleSelect('getSelects');
-            fetch('/set_setting_groups', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({name: 'combined_training', groups: selectedVals})
-            })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        console.error('failed to update combined_training:', data.message);
-                    }
-                })
-                .catch(error => console.error('Error updating combined_training:', error));
-        });
     });
 
     // 删除相关逻辑
@@ -663,7 +661,7 @@
         if (event.target == modal) {
             closeModal();
         }
-    }
+    };
 
     deleteSelectedBtn.addEventListener('click', () => {
         const selectedCheckboxes = document.querySelectorAll('.select-checkbox:checked');
