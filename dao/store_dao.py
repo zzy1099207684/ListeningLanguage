@@ -9,8 +9,15 @@ from sql_queries import (
     DELETE_STORE_BY_TEXT,
     UPDATE_STORE_BY_TEXT,
     SELECT_ID_BY_TEXT,
+    UPDATE_STORE_LINE_TEXT_BY_ID,
+
+    # 新增
+    SELECT_ID_BY_TEXT,
+    # 下方是补充新增的SQL
+    DELETE_STORE_BY_ID,
     UPDATE_STORE_LINE_TEXT_BY_ID
 )
+
 
 def select_all_store():
     with get_db_connection() as conn:
@@ -19,6 +26,7 @@ def select_all_store():
             rows = cur.fetchall()
     # rows: [(id, group_name, line_text), ...]
     return rows
+
 
 def select_store_by_group(group_name):
     if not group_name:
@@ -29,17 +37,20 @@ def select_store_by_group(group_name):
             rows = cur.fetchall()
     return rows
 
+
 def insert_store(group_name, line_text):
     with get_db_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(INSERT_STORE, (group_name, line_text))
         conn.commit()
 
+
 def delete_store_by_text(line_text):
     with get_db_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(DELETE_STORE_BY_TEXT, (line_text,))
         conn.commit()
+
 
 def update_store_by_text(old_text, new_text):
     """
@@ -50,6 +61,7 @@ def update_store_by_text(old_text, new_text):
             cur.execute(UPDATE_STORE_BY_TEXT, (new_text, old_text))
         conn.commit()
 
+
 def select_id_by_text(line_text):
     with get_db_connection() as conn:
         with conn.cursor() as cur:
@@ -57,8 +69,18 @@ def select_id_by_text(line_text):
             row = cur.fetchone()
     return row[0] if row else None
 
+
 def update_store_line_text_by_id(row_id, new_text):
     with get_db_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(UPDATE_STORE_LINE_TEXT_BY_ID, (new_text, row_id))
+        conn.commit()
+
+
+# ============== 新增的方法 ==============
+
+def delete_store_by_id(row_id):
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(DELETE_STORE_BY_ID, (row_id,))
         conn.commit()

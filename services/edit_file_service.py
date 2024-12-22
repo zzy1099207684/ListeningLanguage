@@ -1,10 +1,15 @@
+# services/edit_file_service.py
+
 import hashlib
 import os
 from dao.store_dao import (
     select_all_store,
     insert_store,
     delete_store_by_text,
-    update_store_by_text
+    update_store_by_text,
+    select_id_by_text,
+    delete_store_by_id,                  # 新增
+    update_store_line_text_by_id         # 新增
 )
 from dao.translations_dao import (
     select_all_translations,
@@ -39,16 +44,21 @@ def insert_new_lines(new_lines, group_name=''):
 
 
 def remove_line_by_text(text):
+    """
+    原逻辑：通过文本删除。
+    一旦多个行的line_text相同，会全部被删。
+    为不破坏现有逻辑，暂保留。
+    """
     delete_store_by_text(text)
 
 
 def update_line_text(old_text, new_text, new_trans):
-    # 先更新 store
+    """
+    原逻辑：通过文本更新，只更新首个匹配到的行。
+    """
     update_store_by_text(old_text, new_text)
-    # 再删旧音频 + 旧翻译
     delete_audio_file(old_text)
     delete_translation(old_text)
-    # 若需要新翻译，则插入/更新
     save_translations(new_text, new_trans)
 
 
@@ -58,3 +68,41 @@ def delete_audio_file(text):
     file_path = os.path.join(AUDIO_PERSISTENT_DIR, filename)
     if os.path.exists(file_path):
         os.remove(file_path)
+
+
+# ================== 新增 ID 级别更新/删除逻辑 ==================
+
+def remove_line_by_id(row_id):
+    """
+    新增：通过 ID 删除行；
+         由于旧 remove_line_by_text() 会删除所有同文本行，这里调用前先获取旧文本，再复用旧方法。
+    """
+    from dao.db_connection import get_db_connection
+    old_text = None
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT line_text FROM store WHERE id = %s LIMIT 1", (row_id,))
+            row = cur.fetchone()
+            if row:
+                old_text = row[0]
+    if old_text:
+        # 复用旧逻辑
+        remove_line_by_text(old_text)
+
+
+def update_line_text_by_id(row_id, new_text, new_trans):
+    """
+    新增：通过 ID 更新行；
+         由于旧 update_line_text() 会同时删除旧翻译及音频，这里也先获取旧文本再复用。
+    """
+    from dao.db_connection import get_db_connection
+    old_text = None
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT line_text FROM store WHERE id = %s LIMIT 1", (row_id,))
+            row = cur.fetchone()
+            if row:
+                old_text = row[0]
+    if old_text:
+        # 复用旧逻辑
+        update_line_text(old_text, new_text, new_trans)

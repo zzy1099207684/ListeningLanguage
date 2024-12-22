@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -341,12 +340,6 @@
                 font-size: 12px;
             }
 
-            .pagination form {
-                display: flex;
-                align-items: center;
-                gap: 5px;
-            }
-
             .pagination form input[type="number"] {
                 width: 50px;
                 padding: 5px;
@@ -365,11 +358,9 @@
     <h1>Edit Text File</h1>
 
     <div class="group-selection">
-        <!-- choose group(s) => name=edit_choose, 移除OK按钮，一旦选中就写入并刷新页面 -->
         <label>choose group(s):</label>
         <select id="editChooseSelect" name="groups" multiple="multiple"></select>
 
-        <!-- combined training group => name=combined_training, 同理移除“ok”按钮 -->
         <label>combined training group:</label>
         <select id="combinedTrainingSelect" name="groups" multiple="multiple"></select>
     </div>
@@ -389,7 +380,7 @@
             <th>
                 <input type="checkbox" id="selectAllCheckbox" title="全选/全不选">
             </th>
-            <th>line number</th>
+            <th>ID</th>
             <th>text</th>
             <th>translation</th>
             <th>
@@ -400,23 +391,25 @@
                 </div>
             </th>
         </tr>
-        {% for line, translation in lines %}
+        {% for (sid, line_text, translation) in lines %}
         <tr>
             <td>
-                <input type="checkbox" class="select-checkbox" name="selected_lines"
-                       value="{{ loop.index + (current_page - 1) * 4 }}">
+                <!-- 勾选时传递 row_id -->
+                <input type="checkbox" class="select-checkbox" name="selected_lines" value="{{ sid }}">
             </td>
-            <td>{{ loop.index + (current_page - 1) * 4 }}</td>
-            <td class="line-text">{{ line }}</td>
+            <td>{{ sid }}</td>
+            <td class="line-text">{{ line_text }}</td>
             <td class="translation-text">{{ translation }}</td>
             <td>
-                <button type="button" class="control-btn delete-btn"
-                        data-line-number="{{ loop.index + (current_page - 1) * 4 }}">删除
-                </button>
-                <form method="POST" style="display:inline; margin-left: 10px;">
+                <!-- 删除按钮：直接POST后端 -->
+                <button type="button" class="control-btn delete-btn" data-row-id="{{ sid }}">删除</button>
+
+                <!-- 更新表单：直接POST后端 -->
+                <form method="POST" style="display:inline; margin-left: 10px;"
+                      action="{{ url_for('edit_file.edit', page=current_page, search=search_query, groups=selected_groups) }}">
                     <input type="hidden" name="action" value="update">
-                    <input type="hidden" name="line_number" value="{{ loop.index + (current_page - 1) * 4 }}">
-                    <input type="text" name="updated_text" value="{{ line }}" required
+                    <input type="hidden" name="row_id" value="{{ sid }}">
+                    <input type="text" name="updated_text" value="{{ line_text }}" required
                            style="width: 150px; padding: 5px; margin-right: 5px;">
                     <input type="text" name="updated_translation" value="{{ translation }}" required
                            style="width: 200px; padding: 5px; margin-right: 5px;">
@@ -486,7 +479,6 @@
         </form>
     </div>
 
-    <!-- 新增的表单部分：在新增多行文本时，带上分组下拉框 -->
     <form method="POST" action="{{ url_for('edit_file.edit', page=current_page, search=search_query) }}">
         {% for sg in selected_groups %}
         <input type="hidden" name="groups" value="{{sg}}">
@@ -553,7 +545,6 @@
                 $('#editChooseSelect').multipleSelect({
                     placeholder: 'choose group(s)',
                     selectAll: false,
-                    // 仅在用户收起(关闭)下拉框后再统一调用后端 & 刷新页面，避免频繁刷新
                     onClose: function() {
                         const selectedVals = $('#editChooseSelect').multipleSelect('getSelects');
                         fetch('/set_setting_groups', {
@@ -591,7 +582,6 @@
                     const saved = data.groups || [];
                     $('#editChooseSelect').multipleSelect('setSelects', saved);
                 }
-                // 再获取 name=combined_training
                 return fetch('/get_setting_groups?name=combined_training');
             })
             .then(res => res.json())
@@ -616,7 +606,7 @@
 
     deleteButtons.forEach(button => {
         button.addEventListener('click', () => {
-            const lineNumber = button.getAttribute('data-line-number');
+            const rowId = button.getAttribute('data-row-id');
             if (directDeleteCheckbox.checked) {
                 const tempForm = document.createElement('form');
                 tempForm.method = 'POST';
@@ -628,17 +618,25 @@
                 actionInput.value = 'delete';
                 tempForm.appendChild(actionInput);
 
-                const lineNumberInput = document.createElement('input');
-                lineNumberInput.type = 'hidden';
-                lineNumberInput.name = 'line_number';
-                lineNumberInput.value = lineNumber;
-                tempForm.appendChild(lineNumberInput);
+                const rowIdInput = document.createElement('input');
+                rowIdInput.type = 'hidden';
+                rowIdInput.name = 'row_id';
+                rowIdInput.value = rowId;
+                tempForm.appendChild(rowIdInput);
+
+                {% for sg in selected_groups %}
+                const gInput = document.createElement('input');
+                gInput.type = 'hidden';
+                gInput.name = 'groups';
+                gInput.value = "{{ sg }}";
+                tempForm.appendChild(gInput);
+                {% endfor %}
 
                 document.body.appendChild(tempForm);
                 tempForm.submit();
             } else {
                 modalAction.value = 'delete';
-                modalLineNumbers.innerHTML = `<input type="hidden" name="line_number" value="${lineNumber}">`;
+                modalLineNumbers.innerHTML = `<input type="hidden" name="row_id" value="${rowId}">`;
                 modalMessage.innerText = 'did you want delete this row?';
                 openModal();
             }
@@ -672,7 +670,7 @@
             openModal();
             return;
         }
-        const selectedLines = Array.from(selectedCheckboxes).map(cb => cb.value);
+        const selectedRows = Array.from(selectedCheckboxes).map(cb => cb.value);
         if (directDeleteCheckbox.checked) {
             const tempForm = document.createElement('form');
             tempForm.method = 'POST';
@@ -684,20 +682,28 @@
             actionInput.value = 'delete_selected';
             tempForm.appendChild(actionInput);
 
-            selectedLines.forEach(lineNumber => {
-                const lineNumberInput = document.createElement('input');
-                lineNumberInput.type = 'hidden';
-                lineNumberInput.name = 'selected_lines';
-                lineNumberInput.value = lineNumber;
-                tempForm.appendChild(lineNumberInput);
+            selectedRows.forEach(rid => {
+                const rowIdInput = document.createElement('input');
+                rowIdInput.type = 'hidden';
+                rowIdInput.name = 'selected_lines';
+                rowIdInput.value = rid;
+                tempForm.appendChild(rowIdInput);
             });
+
+            {% for sg in selected_groups %}
+            const gInput = document.createElement('input');
+            gInput.type = 'hidden';
+            gInput.name = 'groups';
+            gInput.value = "{{ sg }}";
+            tempForm.appendChild(gInput);
+            {% endfor %}
 
             document.body.appendChild(tempForm);
             tempForm.submit();
         } else {
             modalAction.value = 'delete_selected';
-            modalLineNumbers.innerHTML = selectedLines.map(lineNumber =>
-                `<input type="hidden" name="selected_lines" value="${lineNumber}">`
+            modalLineNumbers.innerHTML = selectedRows.map(rid =>
+                `<input type="hidden" name="selected_lines" value="${rid}">`
             ).join('');
             modalMessage.innerText = `sure to delete ${selectedCount} ?`;
             openModal();

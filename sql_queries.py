@@ -2,6 +2,11 @@
 # store表相关SQL
 #####################
 
+DELETE_STORE_BY_ID = """
+    DELETE FROM store
+     WHERE id = %s
+"""
+
 SELECT_ALL_STORE = """
     SELECT id, group_name, line_text 
       FROM store
@@ -86,3 +91,4 @@ SELECT_SETTING_BY_NAME = """
      WHERE name = %s
      LIMIT 1
 """
+
