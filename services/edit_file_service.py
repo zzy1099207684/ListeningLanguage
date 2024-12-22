@@ -2,14 +2,12 @@
 
 import hashlib
 import os
+
 from dao.store_dao import (
     select_all_store,
     insert_store,
     delete_store_by_text,
     update_store_by_text,
-    select_id_by_text,
-    delete_store_by_id,                  # 新增
-    update_store_line_text_by_id         # 新增
 )
 from dao.translations_dao import (
     select_all_translations,
