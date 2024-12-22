@@ -2,12 +2,14 @@
 
 import hashlib
 import os
-
 from dao.store_dao import (
     select_all_store,
     insert_store,
     delete_store_by_text,
     update_store_by_text,
+    select_id_by_text,
+    delete_store_by_id,                  # 新增
+    update_store_line_text_by_id         # 新增
 )
 from dao.translations_dao import (
     select_all_translations,
@@ -44,9 +46,11 @@ def insert_new_lines(new_lines, group_name=''):
 def remove_line_by_text(text):
     """
     原逻辑：通过文本删除。
-    一旦多个行的line_text相同，会全部被删。
-    为不破坏现有逻辑，暂保留。
+    一旦多个行的 line_text 相同，会全部被删。
+    同时删除对应翻译 & 音频。
     """
+    delete_audio_file(text)
+    delete_translation(text)
     delete_store_by_text(text)
 
 
@@ -73,7 +77,7 @@ def delete_audio_file(text):
 def remove_line_by_id(row_id):
     """
     新增：通过 ID 删除行；
-         由于旧 remove_line_by_text() 会删除所有同文本行，这里调用前先获取旧文本，再复用旧方法。
+         由于旧 remove_line_by_text() 会删除对应翻译和音频，这里调用前先查出旧文本，再复用。
     """
     from dao.db_connection import get_db_connection
     old_text = None
@@ -84,14 +88,15 @@ def remove_line_by_id(row_id):
             if row:
                 old_text = row[0]
     if old_text:
-        # 复用旧逻辑
         remove_line_by_text(old_text)
+    # 最后按 ID 删除 store 表记录
+    delete_store_by_id(row_id)
 
 
 def update_line_text_by_id(row_id, new_text, new_trans):
     """
     新增：通过 ID 更新行；
-         由于旧 update_line_text() 会同时删除旧翻译及音频，这里也先获取旧文本再复用。
+         由于旧 update_line_text() 会同时删除旧翻译及音频，这里也要先获取旧文本再复用。
     """
     from dao.db_connection import get_db_connection
     old_text = None
@@ -102,5 +107,10 @@ def update_line_text_by_id(row_id, new_text, new_trans):
             if row:
                 old_text = row[0]
     if old_text:
-        # 复用旧逻辑
         update_line_text(old_text, new_text, new_trans)
+    else:
+        # 如果没找到旧文本，直接更新存储表；此情况一般不会出现
+        update_store_line_text_by_id(row_id, new_text)
+        delete_audio_file(new_text)  # 避免重复
+        delete_translation(new_text)
+        save_translations(new_text, new_trans)
