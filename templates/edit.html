@@ -497,9 +497,7 @@
         <input type="hidden" name="action" value="add">
         <div style="margin-top: 10px;">
             <button type="submit" class="control-btn">add</button>
-            <label for="new_group" style="margin-left:10px;">Group:</label>
             <select id="new_group" name="new_group">
-                <option value="">(空)</option>
                 {% for g in group_names %}
                 <option value="{{ g }}">{{ g }}</option>
                 {% endfor %}
