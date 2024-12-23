@@ -79,11 +79,13 @@
             display: flex;
             align-items: center;
             gap: 10px;
+            flex-wrap: wrap; /* 允许换行 */
         }
 
         .group-selection label {
             font-size: 16px;
             font-weight: bold;
+            min-width: 150px; /* 确保标签有足够宽度 */
         }
 
         table {
@@ -152,6 +154,7 @@
             justify-content: center;
             gap: 20px;
             margin-bottom: 20px;
+            flex-wrap: wrap; /* 允许换行 */
         }
 
         .buttons button {
@@ -163,6 +166,8 @@
             cursor: pointer;
             transition: background-color 0.3s;
             font-size: 14px;
+            flex: 1 1 200px; /* 使按钮在小屏幕上自适应宽度 */
+            max-width: 300px;
         }
 
         .buttons button:hover:not(:disabled) {
@@ -242,6 +247,7 @@
             display: flex;
             align-items: center;
             gap: 5px;
+            flex-wrap: wrap; /* 允许换行 */
         }
 
         .pagination form input[type="number"] {
@@ -327,13 +333,39 @@
                 width: 100%;
             }
 
-            table, th, td {
+            .group-selection {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .group-selection label {
+                min-width: unset;
+            }
+
+            table {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+
+            th, td {
+                padding: 8px;
                 font-size: 12px;
             }
 
             .control-btn {
                 padding: 6px 10px;
                 font-size: 12px;
+            }
+
+            .buttons {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .buttons button {
+                flex: 1 1 auto;
+                max-width: 100%;
             }
 
             .pagination a, .pagination span {
@@ -376,50 +408,52 @@
         </form>
     </div>
 
-    <table id="textTable">
-        <tr>
-            <th>
-                <input type="checkbox" id="selectAllCheckbox" title="全选/全不选">
-            </th>
-            <th>ID</th>
-            <th>text</th>
-            <th>translation</th>
-            <th>
-                操作
-                <div class="direct-delete-container">
-                    <input type="checkbox" id="directDeleteCheckbox">
-                    <label for="directDeleteCheckbox">directly delete</label>
-                </div>
-            </th>
-        </tr>
-        {% for (sid, line_text, translation) in lines %}
-        <tr>
-            <td>
-                <!-- 勾选时传递 row_id -->
-                <input type="checkbox" class="select-checkbox" name="selected_lines" value="{{ sid }}">
-            </td>
-            <td>{{ sid }}</td>
-            <td class="line-text">{{ line_text }}</td>
-            <td class="translation-text">{{ translation }}</td>
-            <td>
-                <!-- 删除按钮：直接POST后端 -->
-                <button type="button" class="control-btn delete-btn" data-row-id="{{ sid }}">删除</button>
+    <div style="overflow-x: auto;">
+        <table id="textTable">
+            <tr>
+                <th>
+                    <input type="checkbox" id="selectAllCheckbox" title="全选/全不选">
+                </th>
+                <th>ID</th>
+                <th>text</th>
+                <th>translation</th>
+                <th>
+                    操作
+                    <div class="direct-delete-container">
+                        <input type="checkbox" id="directDeleteCheckbox">
+                        <label for="directDeleteCheckbox">directly delete</label>
+                    </div>
+                </th>
+            </tr>
+            {% for (sid, line_text, translation) in lines %}
+            <tr>
+                <td>
+                    <!-- 勾选时传递 row_id -->
+                    <input type="checkbox" class="select-checkbox" name="selected_lines" value="{{ sid }}">
+                </td>
+                <td>{{ sid }}</td>
+                <td class="line-text">{{ line_text }}</td>
+                <td class="translation-text">{{ translation }}</td>
+                <td>
+                    <!-- 删除按钮：直接POST后端 -->
+                    <button type="button" class="control-btn delete-btn" data-row-id="{{ sid }}">删除</button>
 
-                <!-- 更新表单：直接POST后端 -->
-                <form method="POST" style="display:inline; margin-left: 10px;"
-                      action="{{ url_for('edit_file.edit', page=current_page, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}">
-                    <input type="hidden" name="action" value="update">
-                    <input type="hidden" name="row_id" value="{{ sid }}">
-                    <input type="text" name="updated_text" value="{{ line_text }}" required
-                           style="width: 150px; padding: 5px; margin-right: 5px;">
-                    <input type="text" name="updated_translation" value="{{ translation }}" required
-                           style="width: 200px; padding: 5px; margin-right: 5px;">
-                    <button type="submit" class="control-btn">更新</button>
-                </form>
-            </td>
-        </tr>
-        {% endfor %}
-    </table>
+                    <!-- 更新表单：直接POST后端 -->
+                    <form method="POST" style="display:inline; margin-left: 10px;"
+                          action="{{ url_for('edit_file.edit', page=current_page, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}">
+                        <input type="hidden" name="action" value="update">
+                        <input type="hidden" name="row_id" value="{{ sid }}">
+                        <input type="text" name="updated_text" value="{{ line_text }}" required
+                               style="width: 150px; padding: 5px; margin-right: 5px;">
+                        <input type="text" name="updated_translation" value="{{ translation }}" required
+                               style="width: 200px; padding: 5px; margin-right: 5px;">
+                        <button type="submit" class="control-btn">更新</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
 
     <div class="buttons">
         <button type="button" class="control-btn batch-delete-btn" id="deleteSelectedBtn">delete choose</button>
@@ -499,9 +533,9 @@
             <input type="text" id="new_group" name="new_group" placeholder="输入新组名">
         </div>
         <input type="hidden" name="action" value="add">
-        <div style="margin-top: 10px;">
+        <div style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 10px;">
             <button type="submit" class="control-btn">add</button>
-            <select id="new_group_select" name="existing_group">
+            <select id="new_group_select" name="existing_group" style="flex: 1 1 200px; max-width: 300px;">
                 <option value="">-- 选择现有组 --</option>
                 {% for g in group_names %}
                 <option value="{{ g }}">{{ g }}</option>
