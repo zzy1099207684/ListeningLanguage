@@ -624,12 +624,15 @@
                 rowIdInput.value = rowId;
                 tempForm.appendChild(rowIdInput);
 
-                {% for sg in selected_groups %}
-                const gInput = document.createElement('input');
-                gInput.type = 'hidden';
-                gInput.name = 'groups';
-                gInput.value = "{{ sg }}";
-                tempForm.appendChild(gInput);
+                // 使用 let 以避免重复声明报错
+                {% for sg in selected_groups -%}
+                {
+                    let gInput = document.createElement('input');
+                    gInput.type = 'hidden';
+                    gInput.name = 'groups';
+                    gInput.value = "{{ sg }}";
+                    tempForm.appendChild(gInput);
+                }
                 {% endfor %}
 
                 document.body.appendChild(tempForm);
@@ -683,19 +686,21 @@
             tempForm.appendChild(actionInput);
 
             selectedRows.forEach(rid => {
-                const rowIdInput = document.createElement('input');
+                let rowIdInput = document.createElement('input');
                 rowIdInput.type = 'hidden';
                 rowIdInput.name = 'selected_lines';
                 rowIdInput.value = rid;
                 tempForm.appendChild(rowIdInput);
             });
 
-            {% for sg in selected_groups %}
-            const gInput = document.createElement('input');
-            gInput.type = 'hidden';
-            gInput.name = 'groups';
-            gInput.value = "{{ sg }}";
-            tempForm.appendChild(gInput);
+            {% for sg in selected_groups -%}
+            {
+                let gInput = document.createElement('input');
+                gInput.type = 'hidden';
+                gInput.name = 'groups';
+                gInput.value = "{{ sg }}";
+                tempForm.appendChild(gInput);
+            }
             {% endfor %}
 
             document.body.appendChild(tempForm);
