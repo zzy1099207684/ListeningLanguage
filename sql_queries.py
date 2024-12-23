@@ -1,10 +1,15 @@
+# sql_queries.py
+
 #####################
 # store表相关SQL
 #####################
 
-DELETE_STORE_BY_ID = """
-    DELETE FROM store
-     WHERE id = %s
+CREATE_STORE_TABLE = """
+CREATE TABLE IF NOT EXISTS store (
+    id SERIAL PRIMARY KEY,
+    group_name TEXT,
+    line_text TEXT NOT NULL
+);
 """
 
 SELECT_ALL_STORE = """
@@ -28,6 +33,12 @@ INSERT_STORE = """
 DELETE_STORE_BY_TEXT = """
     DELETE FROM store
      WHERE line_text = %s
+"""
+
+# 新增：通过id删除store表对应记录
+DELETE_STORE_BY_ID = """
+    DELETE FROM store
+     WHERE id = %s
 """
 
 UPDATE_STORE_BY_TEXT = """
@@ -54,6 +65,7 @@ UPDATE_STORE_LINE_TEXT_BY_ID = """
      WHERE id = %s
 """
 
+
 #####################
 # translations表相关SQL
 #####################
@@ -75,8 +87,9 @@ DELETE_TRANSLATION_BY_ORIGINAL = """
      WHERE original_text = %s
 """
 
+
 #####################
-# setting表相关SQL (新增)
+# setting表相关SQL
 #####################
 
 UPSERT_SETTING = """
@@ -91,4 +104,3 @@ SELECT_SETTING_BY_NAME = """
      WHERE name = %s
      LIMIT 1
 """
-

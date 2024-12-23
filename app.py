@@ -17,6 +17,7 @@ from gtts import gTTS
 from dao.store_dao import select_all_store
 from dao.translations_dao import select_all_translations, delete_translation, upsert_translation
 from dao.setting_dao import get_setting, set_setting
+from dao.store_dao import ensure_all_sequences
 
 from edit_file import edit_file_blueprint
 from services.app_service import (
@@ -26,8 +27,10 @@ from services.app_service import (
 )
 
 app = Flask(__name__)
-app.register_blueprint(edit_file_blueprint, url_prefix='/file')
+with app.app_context():
+    ensure_all_sequences()  # 同步所有表的序列
 
+app.register_blueprint(edit_file_blueprint, url_prefix='/file')
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_FILE_DIR'] = os.path.join(tempfile.gettempdir(), 'flask_sessions')
 app.config['SESSION_PERMANENT'] = False
@@ -39,6 +42,7 @@ AUDIO_PERSISTENT_DIR = 'audio_files'
 os.makedirs(AUDIO_PERSISTENT_DIR, exist_ok=True)
 
 translations_lock = threading.Lock()
+
 
 def delete_temp_files():
     pass
@@ -60,10 +64,12 @@ def initialize_session_vars():
     if 'random_index' not in session:
         session['random_index'] = 0
 
+
 @app.route('/restart', methods=['GET'])
 def restart():
     os.system("sudo systemctl restart your_project_service")
     return "Project restarted successfully!", 200
+
 
 @app.route('/language')
 def index():
@@ -101,6 +107,7 @@ def get_setting_groups():
     selected = get_setting(name)  # list[str]
     return jsonify({'status': 'success', 'groups': selected})
 
+
 @app.route('/set_setting_groups', methods=['POST'])
 def set_setting_groups():
     """
@@ -136,6 +143,7 @@ def read_text_file_by_multiple_groups(groups):
         if g in groups:
             lines.append(line_text)
     return lines
+
 
 @app.route('/play', methods=['POST'])
 def play():
@@ -204,9 +212,11 @@ def set_play_options():
         return jsonify({'status': 'error', 'message': 'Invalid input.'})
     return jsonify({'status': 'options_set'})
 
+
 @app.route('/get_play_options', methods=['GET'])
 def get_play_options():
     return jsonify({'play_count': session['play_count'], 'play_interval': session['play_interval']})
+
 
 @app.route('/get_current_text', methods=['GET'])
 def get_current_text():
@@ -221,11 +231,13 @@ def get_current_text():
     else:
         return jsonify({'status': 'success', 'text': 'no more.', 'sentence_index': -1})
 
+
 @app.route('/stop', methods=['POST'])
 def stop():
     session['current_index'] = 0
     session['random_index'] = 0
     return jsonify({'status': 'stopped'})
+
 
 @app.route('/toggle_play_mode', methods=['POST'])
 def toggle_play_mode():
@@ -245,9 +257,11 @@ def toggle_play_mode():
         session['play_mode'] = 'sequential'
     return jsonify({'status': 'mode_toggled', 'play_mode': session['play_mode']})
 
+
 @app.route('/get_play_mode', methods=['GET'])
 def get_play_mode():
     return jsonify({'play_mode': session['play_mode']})
+
 
 @app.route('/next', methods=['POST'])
 def next_line():
@@ -316,6 +330,7 @@ def translate_text():
             return jsonify({'status': 'missing_translation'})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
+
 
 @app.route('/scan_resources', methods=['GET'])
 def scan_resources():
@@ -428,9 +443,11 @@ def mixed_training_setup():
     session['mixed_set'] = mixed_set
     return redirect(url_for('mixed_training'))
 
+
 @app.route('/mixed_training')
 def mixed_training():
     return render_template('mixed_training.html')
+
 
 @app.route('/mixed_training_next', methods=['GET'])
 def mixed_training_next():
@@ -467,6 +484,7 @@ def mixed_training_next():
 
     return jsonify(response)
 
+
 @app.route('/mixed_training_mark', methods=['POST'])
 def mixed_training_mark():
     data = request.get_json()
@@ -498,6 +516,7 @@ def mixed_training_mark():
         session['mixed_set'] = mixed_set
         return jsonify({'status': 'success', 'other_text': other_text, 'done_for_this': False})
 
+
 @app.route('/mixed_training_check_finish', methods=['GET'])
 def mixed_training_check_finish():
     mixed_set = session.get('mixed_set', [])
@@ -505,6 +524,7 @@ def mixed_training_check_finish():
         return jsonify({'status': 'finished'})
     else:
         return jsonify({'status': 'not_finished'})
+
 
 @app.route('/mixed_training_update_initial', methods=['POST'])
 def mixed_training_update_initial():
@@ -521,9 +541,11 @@ def mixed_training_update_initial():
     session['mixed_set_initial'] = initial_set
     return jsonify({'status': 'success'})
 
+
 @app.route('/mixed_training_all_done')
 def mixed_training_all_done():
     return redirect(url_for('mixed_training_finish'))
+
 
 @app.route('/mixed_training_finish')
 def mixed_training_finish():
