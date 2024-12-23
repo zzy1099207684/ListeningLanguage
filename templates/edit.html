@@ -520,7 +520,8 @@
             <span class="disabled">final&raquo;</span>
         {% endif %}
 
-        <form method="GET" action="{{ url_for('edit_file.edit') }}" class="pagination-link">
+        <!-- 修改类名为 pagination-form -->
+        <form method="GET" action="{{ url_for('edit_file.edit') }}" class="pagination-form">
             <input type="number" name="page" min="1" max="{{ total_pages }}" placeholder="page num" required>
             {% for sg in selected_groups %}
             <input type="hidden" name="groups" value="{{ sg }}">
@@ -921,7 +922,8 @@
             }
         });
 
-        $(document).on('submit', '.pagination form', function(e) {
+        // 修改监听器，监听 .pagination-form 的提交事件
+        $(document).on('submit', '.pagination-form', function(e) {
             e.preventDefault();
             const pageInput = $(this).find('input[name="page"]');
             const page = pageInput.val();
