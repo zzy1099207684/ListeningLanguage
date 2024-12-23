@@ -426,7 +426,7 @@
                 </th>
             </tr>
             {% for (sid, line_text, translation) in lines %}
-            <tr>
+            <tr id="row-{{ sid }}">
                 <td>
                     <!-- 勾选时传递 row_id -->
                     <input type="checkbox" class="select-checkbox" name="selected_lines" value="{{ sid }}">
@@ -435,12 +435,12 @@
                 <td class="line-text">{{ line_text }}</td>
                 <td class="translation-text">{{ translation }}</td>
                 <td>
-                    <!-- 删除按钮：直接POST后端 -->
-                    <button type="button" class="control-btn delete-btn" data-row-id="{{ sid }}">删除</button>
+                    <!-- 删除按钮：通过AJAX处理 -->
+                    <button type="button" class="control-btn delete-btn ajax-delete-btn" data-row-id="{{ sid }}">删除</button>
 
-                    <!-- 更新表单：直接POST后端 -->
-                    <form method="POST" style="display:inline; margin-left: 10px;"
-                          action="{{ url_for('edit_file.edit', page=current_page, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}">
+                    <!-- 更新表单：通过AJAX处理 -->
+                    <form method="POST" class="ajax-update-form" data-row-id="{{ sid }}"
+                          action="{{ url_for('edit_file.edit') }}">
                         <input type="hidden" name="action" value="update">
                         <input type="hidden" name="row_id" value="{{ sid }}">
                         <input type="text" name="updated_text" value="{{ line_text }}" required
@@ -658,152 +658,208 @@
                 }
             })
             .catch(err => console.error(err));
-    });
 
-    // 删除相关逻辑
-    const modal = document.getElementById('deleteModal');
-    const deleteButtons = document.querySelectorAll('.delete-btn');
-    const modalLineNumbers = document.getElementById('modalLineNumbers');
-    const modalAction = document.getElementById('modalAction');
-    const modalMessage = document.getElementById('modalMessage');
-    const directDeleteCheckbox = document.getElementById('directDeleteCheckbox');
-    const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
-    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+        // 删除相关逻辑
+        const modal = document.getElementById('deleteModal');
+        const deleteButtons = document.querySelectorAll('.ajax-delete-btn');
+        const modalLineNumbers = document.getElementById('modalLineNumbers');
+        const modalAction = document.getElementById('modalAction');
+        const modalMessage = document.getElementById('modalMessage');
+        const directDeleteCheckbox = document.getElementById('directDeleteCheckbox');
+        const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+        const selectAllCheckbox = document.getElementById('selectAllCheckbox');
 
-    deleteButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            const rowId = button.getAttribute('data-row-id');
+        // 删除按钮的AJAX处理
+        deleteButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const rowId = button.getAttribute('data-row-id');
+                if (directDeleteCheckbox.checked) {
+                    // 直接删除，使用AJAX
+                    $.ajax({
+                        url: "{{ url_for('edit_file.edit') }}",
+                        type: 'POST',
+                        data: {
+                            action: 'delete',
+                            row_id: rowId,
+                            groups: {{ selected_groups | tojson }},
+                            combined_training_groups: {{ combined_training_groups | tojson }}
+                        },
+                        dataType: 'text', // 设置为text，避免解析错误
+                        success: function(response, textStatus, jqXHR) {
+                            // 移除对应的表格行
+                            $('#row-' + rowId).remove();
+                        },
+                        error: function(jqXHR, textStatus, errorThrown) {
+                            alert('删除失败: ' + errorThrown);
+                        }
+                    });
+                } else {
+                    // 显示确认删除的模态框
+                    modalAction.value = 'delete';
+                    modalLineNumbers.innerHTML = `<input type="hidden" name="row_id" value="${rowId}">`;
+                    modalMessage.innerText = '您确定要删除这条记录吗？';
+                    openModal();
+                }
+            });
+        });
+
+        // 处理模态框中的确认删除
+        document.getElementById('deleteForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const action = modalAction.value;
+            if (action === 'delete') {
+                const rowId = modalLineNumbers.querySelector('input[name="row_id"]').value;
+
+                // AJAX删除
+                $.ajax({
+                    url: "{{ url_for('edit_file.edit') }}",
+                    type: 'POST',
+                    data: {
+                        action: 'delete',
+                        row_id: rowId,
+                        groups: {{ selected_groups | tojson }},
+                        combined_training_groups: {{ combined_training_groups | tojson }}
+                    },
+                    dataType: 'text', // 设置为text，避免解析错误
+                    success: function(response, textStatus, jqXHR) {
+                        // 移除对应的表格行
+                        $('#row-' + rowId).remove();
+                        closeModal();
+                    },
+                    error: function(jqXHR, textStatus, errorThrown) {
+                        alert('删除失败: ' + errorThrown);
+                    }
+                });
+            } else if (action === 'delete_selected') {
+                const selectedLines = Array.from(document.querySelectorAll('#modalLineNumbers input[name="selected_lines"]')).map(input => input.value);
+
+                // 批量删除
+                $.ajax({
+                    url: "{{ url_for('edit_file.edit') }}",
+                    type: 'POST',
+                    data: {
+                        action: 'delete_selected',
+                        selected_lines: selectedLines,
+                        groups: {{ selected_groups | tojson }},
+                        combined_training_groups: {{ combined_training_groups | tojson }}
+                    },
+                    dataType: 'text', // 设置为text，避免解析错误
+                    traditional: true, // 允许数组参数
+                    success: function(response, textStatus, jqXHR) {
+                        // 移除对应的表格行
+                        selectedLines.forEach(id => {
+                            $('#row-' + id).remove();
+                        });
+                        closeModal();
+                    },
+                    error: function(jqXHR, textStatus, errorThrown) {
+                        alert('批量删除失败: ' + errorThrown);
+                    }
+                });
+            }
+        });
+
+        function openModal() {
+            modal.style.display = 'block';
+        }
+
+        function closeModal() {
+            modal.style.display = 'none';
+            modalLineNumbers.innerHTML = '';
+            modalAction.value = '';
+            modalMessage.innerText = '确认删除吗？';
+        }
+
+        window.onclick = function (event) {
+            if (event.target == modal) {
+                closeModal();
+            }
+        };
+
+        // 批量删除按钮的AJAX处理
+        deleteSelectedBtn.addEventListener('click', () => {
+            const selectedCheckboxes = document.querySelectorAll('.select-checkbox:checked');
+            const selectedCount = selectedCheckboxes.length;
+            if (selectedCount === 0) {
+                modalAction.value = '';
+                modalLineNumbers.innerHTML = '';
+                modalMessage.innerText = '请至少选择一条记录进行删除。';
+                openModal();
+                return;
+            }
+            const selectedRows = Array.from(selectedCheckboxes).map(cb => cb.value);
             if (directDeleteCheckbox.checked) {
-                const tempForm = document.createElement('form');
-                tempForm.method = 'POST';
-                // 这里带上 GET 的参数(page, search, groups, combined_training_groups)，维持当前页等
-                tempForm.action = "{{ url_for('edit_file.edit', page=current_page, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}";
-
-                const actionInput = document.createElement('input');
-                actionInput.type = 'hidden';
-                actionInput.name = 'action';
-                actionInput.value = 'delete';
-                tempForm.appendChild(actionInput);
-
-                const rowIdInput = document.createElement('input');
-                rowIdInput.type = 'hidden';
-                rowIdInput.name = 'row_id';
-                rowIdInput.value = rowId;
-                tempForm.appendChild(rowIdInput);
-
-                // 使用 let 以避免重复声明报错
-                {% for sg in selected_groups -%}
-                {
-                    let gInput = document.createElement('input');
-                    gInput.type = 'hidden';
-                    gInput.name = 'groups';
-                    gInput.value = "{{ sg }}";
-                    tempForm.appendChild(gInput);
-                }
-                {% endfor %}
-                {% for ctg in combined_training_groups -%}
-                {
-                    let ctgInput = document.createElement('input');
-                    ctgInput.type = 'hidden';
-                    ctgInput.name = 'combined_training_groups';
-                    ctgInput.value = "{{ ctg }}";
-                    tempForm.appendChild(ctgInput);
-                }
-                {% endfor %}
-
-                document.body.appendChild(tempForm);
-                tempForm.submit();
+                // 批量删除，使用AJAX
+                $.ajax({
+                    url: "{{ url_for('edit_file.edit') }}",
+                    type: 'POST',
+                    data: {
+                        action: 'delete_selected',
+                        selected_lines: selectedRows,
+                        groups: {{ selected_groups | tojson }},
+                        combined_training_groups: {{ combined_training_groups | tojson }}
+                    },
+                    dataType: 'text', // 设置为text，避免解析错误
+                    traditional: true, // 允许数组参数
+                    success: function(response, textStatus, jqXHR) {
+                        // 移除对应的表格行
+                        selectedRows.forEach(id => {
+                            $('#row-' + id).remove();
+                        });
+                        closeModal();
+                    },
+                    error: function(jqXHR, textStatus, errorThrown) {
+                        alert('批量删除失败: ' + errorThrown);
+                    }
+                });
             } else {
-                modalAction.value = 'delete';
-                modalLineNumbers.innerHTML = `<input type="hidden" name="row_id" value="${rowId}">`;
-                modalMessage.innerText = '您确定要删除这条记录吗？';
+                // 显示确认删除的模态框
+                modalAction.value = 'delete_selected';
+                modalLineNumbers.innerHTML = selectedRows.map(rid =>
+                    `<input type="hidden" name="selected_lines" value="${rid}">`
+                ).join('');
+                modalMessage.innerText = `您确定要删除选中的 ${selectedCount} 条记录吗？`;
                 openModal();
             }
         });
-    });
 
-    function openModal() {
-        modal.style.display = 'block';
-    }
+        // 更新表单的AJAX处理
+        $('.ajax-update-form').on('submit', function(e) {
+            e.preventDefault();
+            const form = $(this);
+            const rowId = form.data('row-id');
+            const updatedText = form.find('input[name="updated_text"]').val();
+            const updatedTranslation = form.find('input[name="updated_translation"]').val();
 
-    function closeModal() {
-        modal.style.display = 'none';
-        modalLineNumbers.innerHTML = '';
-        modalAction.value = '';
-        modalMessage.innerText = '确认删除吗？';
-    }
-
-    window.onclick = function (event) {
-        if (event.target == modal) {
-            closeModal();
-        }
-    };
-
-    deleteSelectedBtn.addEventListener('click', () => {
-        const selectedCheckboxes = document.querySelectorAll('.select-checkbox:checked');
-        const selectedCount = selectedCheckboxes.length;
-        if (selectedCount === 0) {
-            modalAction.value = '';
-            modalLineNumbers.innerHTML = '';
-            modalMessage.innerText = '请至少选择一条记录进行删除。';
-            openModal();
-            return;
-        }
-        const selectedRows = Array.from(selectedCheckboxes).map(cb => cb.value);
-        if (directDeleteCheckbox.checked) {
-            const tempForm = document.createElement('form');
-            tempForm.method = 'POST';
-            tempForm.action = "{{ url_for('edit_file.edit', page=current_page, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}";
-
-            const actionInput = document.createElement('input');
-            actionInput.type = 'hidden';
-            actionInput.name = 'action';
-            actionInput.value = 'delete_selected';
-            tempForm.appendChild(actionInput);
-
-            selectedRows.forEach(rid => {
-                let rowIdInput = document.createElement('input');
-                rowIdInput.type = 'hidden';
-                rowIdInput.name = 'selected_lines';
-                rowIdInput.value = rid;
-                tempForm.appendChild(rowIdInput);
+            $.ajax({
+                url: form.attr('action'),
+                type: 'POST',
+                data: {
+                    action: 'update',
+                    row_id: rowId,
+                    updated_text: updatedText,
+                    updated_translation: updatedTranslation,
+                    groups: {{ selected_groups | tojson }},
+                    combined_training_groups: {{ combined_training_groups | tojson }}
+                },
+                dataType: 'text', // 设置为text，避免解析错误
+                success: function(response, textStatus, jqXHR) {
+                    // 更新表格行的数据
+                    $('#row-' + rowId + ' .line-text').text(updatedText);
+                    $('#row-' + rowId + ' .translation-text').text(updatedTranslation);
+                },
+                error: function(jqXHR, textStatus, errorThrown) {
+                    alert('更新失败: ' + errorThrown);
+                }
             });
+        });
 
-            {% for sg in selected_groups -%}
-            {
-                let gInput = document.createElement('input');
-                gInput.type = 'hidden';
-                gInput.name = 'groups';
-                gInput.value = "{{ sg }}";
-                tempForm.appendChild(gInput);
-            }
-            {% endfor %}
-            {% for ctg in combined_training_groups -%}
-            {
-                let ctgInput = document.createElement('input');
-                ctgInput.type = 'hidden';
-                ctgInput.name = 'combined_training_groups';
-                ctgInput.value = "{{ ctg }}";
-                tempForm.appendChild(ctgInput);
-            }
-            {% endfor %}
-
-            document.body.appendChild(tempForm);
-            tempForm.submit();
-        } else {
-            modalAction.value = 'delete_selected';
-            modalLineNumbers.innerHTML = selectedRows.map(rid =>
-                `<input type="hidden" name="selected_lines" value="${rid}">`
-            ).join('');
-            modalMessage.innerText = `您确定要删除选中的 ${selectedCount} 条记录吗？`;
-            openModal();
-        }
-    });
-
-    selectAllCheckbox.addEventListener('change', () => {
-        const checkboxes = document.querySelectorAll('.select-checkbox');
-        checkboxes.forEach(cb => {
-            cb.checked = selectAllCheckbox.checked;
+        // 全选复选框的功能
+        selectAllCheckbox.addEventListener('change', () => {
+            const checkboxes = document.querySelectorAll('.select-checkbox');
+            checkboxes.forEach(cb => {
+                cb.checked = selectAllCheckbox.checked;
+            });
         });
     });
 </script>
