@@ -1,4 +1,4 @@
-# app.py 中已注册: app.register_blueprint(edit_file_blueprint, url_prefix='/file')
+# edit_file.py
 
 import math
 from collections import defaultdict
@@ -12,9 +12,8 @@ from services.edit_file_service import (
     read_all_store,
     insert_new_lines,
     remove_line_by_text,
-    update_line_text,
-    # 新增
     remove_line_by_id,
+    update_line_text,
     update_line_text_by_id
 )
 
@@ -36,23 +35,31 @@ def get_default_groups(name='edit_choose'):
             return []
     return []
 
-
 @edit_file_blueprint.route('/edit', methods=['GET', 'POST'])
 def edit():
     # ---------------------------------------------------------
     # 1. 读取或合并 前端传来的 groups 参数(兼容GET/POST)
     # ---------------------------------------------------------
     selected_groups = request.args.getlist('groups', type=str)
+    combined_training_groups = request.args.getlist('combined_training_groups', type=str)
 
     if request.method == 'POST':
         posted_groups = request.form.getlist('groups')
+        posted_combined_training = request.form.getlist('combined_training_groups')
         if posted_groups:
             selected_groups = posted_groups
+        if posted_combined_training:
+            combined_training_groups = posted_combined_training
 
     if not selected_groups:
         default_groups = get_default_groups(name='edit_choose')
         if default_groups:
             selected_groups = default_groups
+
+    if not combined_training_groups:
+        default_combined_training = get_default_groups(name='combined_training')
+        if default_combined_training:
+            combined_training_groups = default_combined_training
 
     rows = read_all_store()  # [(id, group_name, line_text), ...]
     translations = load_translations()
@@ -74,14 +81,21 @@ def edit():
         if action == 'add':
             new_line = request.form.get('new_line', '')
             new_group = request.form.get('new_group', '').strip()
+            existing_group = request.form.get('existing_group', '').strip()
             new_lines = new_line.split('\n')
             new_lines = [x.strip() for x in new_lines if x.strip()]
 
-            if new_lines:
-                insert_new_lines(new_lines, new_group)
+            # 优先使用 new_group，如果存在则忽略 existing_group
+            if new_group:
+                group_name = new_group
+            else:
+                group_name = existing_group
+
+            if new_lines and group_name:
+                insert_new_lines(new_lines, group_name=group_name, new_group=new_group)
                 flash('新行已添加。', 'success')
             else:
-                flash('没有添加任何新行。', 'error')
+                flash('请确保有文本内容和组名。', 'error')
 
         elif action == 'delete':
             # 改为按 row_id 删除
@@ -121,7 +135,7 @@ def edit():
 
         current_page = request.args.get('page', '1')
         search_query = request.args.get('search', '').strip()
-        return redirect(url_for('edit_file.edit', page=current_page, search=search_query, groups=selected_groups))
+        return redirect(url_for('edit_file.edit', page=current_page, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups))
 
     # ---------------------------------------------------------
     # 3. 处理 GET 请求(过滤 & 分页)
@@ -142,7 +156,6 @@ def edit():
         for g in selected_groups:
             if g in group_map:
                 all_rows_in_group.extend(group_map[g])
-        # all_rows_in_group: [(id, line_text), ...] 可能有重复ID吗? 正常不会
         # 去重+原顺序：此处可根据项目需求来定
         # 这里简单处理：转dict后再转回list
         unique_dict = {}
@@ -189,5 +202,6 @@ def edit():
         total_pages=total_pages,
         search_query=search_query,
         group_names=all_group_names,
-        selected_groups=selected_groups
+        selected_groups=selected_groups,
+        combined_training_groups=combined_training_groups
     )

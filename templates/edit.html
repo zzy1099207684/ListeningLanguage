@@ -11,6 +11,7 @@
     <script src="https://cdn.jsdelivr.net/npm/multiple-select@1.5.2/dist/multiple-select.min.js"></script>
 
     <style>
+        /* 保持现有的样式不变 */
         body {
             font-family: 'Arial', sans-serif;
             margin: 0;
@@ -362,13 +363,13 @@
         <select id="editChooseSelect" name="groups" multiple="multiple"></select>
 
         <label>combined training group:</label>
-        <select id="combinedTrainingSelect" name="groups" multiple="multiple"></select>
+        <select id="combinedTrainingSelect" name="combined_training_groups" multiple="multiple"></select>
     </div>
 
     <div class="search-box">
         <form method="GET" action="{{ url_for('edit_file.edit') }}">
             {% for sg in selected_groups %}
-            <input type="hidden" name="groups" value="{{sg}}">
+            <input type="hidden" name="groups" value="{{ sg }}">
             {% endfor %}
             <input type="text" id="searchInput" name="search" placeholder="search text..." value="{{ search_query }}">
             <button type="submit">search</button>
@@ -406,7 +407,7 @@
 
                 <!-- 更新表单：直接POST后端 -->
                 <form method="POST" style="display:inline; margin-left: 10px;"
-                      action="{{ url_for('edit_file.edit', page=current_page, search=search_query, groups=selected_groups) }}">
+                      action="{{ url_for('edit_file.edit', page=current_page, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}">
                     <input type="hidden" name="action" value="update">
                     <input type="hidden" name="row_id" value="{{ sid }}">
                     <input type="text" name="updated_text" value="{{ line_text }}" required
@@ -426,8 +427,8 @@
 
     <div class="pagination">
         {% if current_page > 1 %}
-        <a href="{{ url_for('edit_file.edit', page=1, search=search_query, groups=selected_groups) }}">&laquo; first</a>
-        <a href="{{ url_for('edit_file.edit', page=current_page - 1, search=search_query, groups=selected_groups) }}">&lt; last</a>
+        <a href="{{ url_for('edit_file.edit', page=1, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}">&laquo; first</a>
+        <a href="{{ url_for('edit_file.edit', page=current_page - 1, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}">&lt; last</a>
         {% else %}
         <span class="disabled">&laquo; first</span>
         <span class="disabled">&lt; last</span>
@@ -438,7 +439,7 @@
         {% if page == current_page %}
         <span class="active">{{ page }}</span>
         {% else %}
-        <a href="{{ url_for('edit_file.edit', page=page, search=search_query, groups=selected_groups) }}">{{ page }}</a>
+        <a href="{{ url_for('edit_file.edit', page=page, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}">{{ page }}</a>
         {% endif %}
         {% endfor %}
         {% else %}
@@ -446,24 +447,24 @@
         {% if page == current_page %}
         <span class="active">{{ page }}</span>
         {% else %}
-        <a href="{{ url_for('edit_file.edit', page=page, search=search_query, groups=selected_groups) }}">{{ page }}</a>
+        <a href="{{ url_for('edit_file.edit', page=page, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}">{{ page }}</a>
         {% endif %}
         {% endfor %}
         {% if current_page > 3 and current_page < total_pages - 1 %}
         <span>...</span>
         {% elif current_page == 3 %}
-        <a href="{{ url_for('edit_file.edit', page=3, search=search_query, groups=selected_groups) }}">3</a>
+        <a href="{{ url_for('edit_file.edit', page=3, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}">3</a>
         {% elif current_page == total_pages - 1 %}
-        <a href="{{ url_for('edit_file.edit', page=total_pages - 1, search=search_query, groups=selected_groups) }}">{{ total_pages - 1 }}</a>
+        <a href="{{ url_for('edit_file.edit', page=total_pages - 1, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}">{{ total_pages - 1 }}</a>
         {% endif %}
         {% if current_page != total_pages and total_pages > 2 %}
-        <a href="{{ url_for('edit_file.edit', page=total_pages, search=search_query, groups=selected_groups) }}">{{ total_pages }}</a>
+        <a href="{{ url_for('edit_file.edit', page=total_pages, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}">{{ total_pages }}</a>
         {% endif %}
         {% endif %}
 
         {% if current_page < total_pages %}
-        <a href="{{ url_for('edit_file.edit', page=current_page + 1, search=search_query, groups=selected_groups) }}">next&gt;</a>
-        <a href="{{ url_for('edit_file.edit', page=total_pages, search=search_query, groups=selected_groups) }}">final&raquo;</a>
+        <a href="{{ url_for('edit_file.edit', page=current_page + 1, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}">next&gt;</a>
+        <a href="{{ url_for('edit_file.edit', page=total_pages, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}">final&raquo;</a>
         {% else %}
         <span class="disabled">next&gt;</span>
         <span class="disabled">final&raquo;</span>
@@ -472,25 +473,36 @@
         <form method="GET" action="{{ url_for('edit_file.edit') }}">
             <input type="number" name="page" min="1" max="{{ total_pages }}" placeholder="page num" required>
             {% for sg in selected_groups %}
-            <input type="hidden" name="groups" value="{{sg}}">
+            <input type="hidden" name="groups" value="{{ sg }}">
+            {% endfor %}
+            {% for ctg in combined_training_groups %}
+            <input type="hidden" name="combined_training_groups" value="{{ ctg }}">
             {% endfor %}
             <input type="hidden" name="search" value="{{ search_query }}">
             <button type="submit" class="control-btn">确定</button>
         </form>
     </div>
 
-    <form method="POST" action="{{ url_for('edit_file.edit', page=current_page, search=search_query) }}">
+    <form method="POST" action="{{ url_for('edit_file.edit', page=current_page, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}">
         {% for sg in selected_groups %}
-        <input type="hidden" name="groups" value="{{sg}}">
+        <input type="hidden" name="groups" value="{{ sg }}">
+        {% endfor %}
+        {% for ctg in combined_training_groups %}
+        <input type="hidden" name="combined_training_groups" value="{{ ctg }}">
         {% endfor %}
         <div class="form-group">
             <label for="new_line">content（support multiply line, one line one data）：</label>
             <textarea id="new_line" name="new_line" rows="5" required></textarea>
         </div>
+        <div class="form-group">
+            <label for="new_group">新增组名（如果要创建新组，请在此输入）：</label>
+            <input type="text" id="new_group" name="new_group" placeholder="输入新组名">
+        </div>
         <input type="hidden" name="action" value="add">
         <div style="margin-top: 10px;">
             <button type="submit" class="control-btn">add</button>
-            <select id="new_group" name="new_group">
+            <select id="new_group_select" name="existing_group">
+                <option value="">-- 选择现有组 --</option>
                 {% for g in group_names %}
                 <option value="{{ g }}">{{ g }}</option>
                 {% endfor %}
@@ -570,7 +582,27 @@
                 // multipleSelect for combinedTrainingSelect
                 $('#combinedTrainingSelect').multipleSelect({
                     placeholder: 'combined training group',
-                    selectAll: false
+                    selectAll: false,
+                    onClose: function() {
+                        const selectedVals = $('#combinedTrainingSelect').multipleSelect('getSelects');
+                        fetch('/set_setting_groups', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({name: 'combined_training', groups: selectedVals})
+                        })
+                            .then(res => res.json())
+                            .then(data => {
+                                if (data.status === 'success') {
+                                    const queryParams = new URLSearchParams(window.location.search);
+                                    queryParams.delete('combined_training_groups');
+                                    selectedVals.forEach(g => queryParams.append('combined_training_groups', g));
+                                    window.location.search = queryParams.toString();
+                                } else {
+                                    console.error('failed to update combined_training:', data.message);
+                                }
+                            })
+                            .catch(error => console.error('Error updating combined_training:', error));
+                    }
                 });
 
                 // 2. 获取已保存 name=edit_choose
@@ -610,7 +642,8 @@
             if (directDeleteCheckbox.checked) {
                 const tempForm = document.createElement('form');
                 tempForm.method = 'POST';
-                tempForm.action = "{{ url_for('edit_file.edit', page=current_page, search=search_query, groups=selected_groups) }}";
+                // 这里带上 GET 的参数(page, search, groups, combined_training_groups)，维持当前页等
+                tempForm.action = "{{ url_for('edit_file.edit', page=current_page, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}";
 
                 const actionInput = document.createElement('input');
                 actionInput.type = 'hidden';
@@ -634,13 +667,22 @@
                     tempForm.appendChild(gInput);
                 }
                 {% endfor %}
+                {% for ctg in combined_training_groups -%}
+                {
+                    let ctgInput = document.createElement('input');
+                    ctgInput.type = 'hidden';
+                    ctgInput.name = 'combined_training_groups';
+                    ctgInput.value = "{{ ctg }}";
+                    tempForm.appendChild(ctgInput);
+                }
+                {% endfor %}
 
                 document.body.appendChild(tempForm);
                 tempForm.submit();
             } else {
                 modalAction.value = 'delete';
                 modalLineNumbers.innerHTML = `<input type="hidden" name="row_id" value="${rowId}">`;
-                modalMessage.innerText = 'did you want delete this row?';
+                modalMessage.innerText = '您确定要删除这条记录吗？';
                 openModal();
             }
         });
@@ -654,7 +696,7 @@
         modal.style.display = 'none';
         modalLineNumbers.innerHTML = '';
         modalAction.value = '';
-        modalMessage.innerText = 'sure?';
+        modalMessage.innerText = '确认删除吗？';
     }
 
     window.onclick = function (event) {
@@ -669,7 +711,7 @@
         if (selectedCount === 0) {
             modalAction.value = '';
             modalLineNumbers.innerHTML = '';
-            modalMessage.innerText = 'at least 1';
+            modalMessage.innerText = '请至少选择一条记录进行删除。';
             openModal();
             return;
         }
@@ -677,7 +719,7 @@
         if (directDeleteCheckbox.checked) {
             const tempForm = document.createElement('form');
             tempForm.method = 'POST';
-            tempForm.action = "{{ url_for('edit_file.edit', page=current_page, search=search_query, groups=selected_groups) }}";
+            tempForm.action = "{{ url_for('edit_file.edit', page=current_page, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}";
 
             const actionInput = document.createElement('input');
             actionInput.type = 'hidden';
@@ -702,6 +744,15 @@
                 tempForm.appendChild(gInput);
             }
             {% endfor %}
+            {% for ctg in combined_training_groups -%}
+            {
+                let ctgInput = document.createElement('input');
+                ctgInput.type = 'hidden';
+                ctgInput.name = 'combined_training_groups';
+                ctgInput.value = "{{ ctg }}";
+                tempForm.appendChild(ctgInput);
+            }
+            {% endfor %}
 
             document.body.appendChild(tempForm);
             tempForm.submit();
@@ -710,7 +761,7 @@
             modalLineNumbers.innerHTML = selectedRows.map(rid =>
                 `<input type="hidden" name="selected_lines" value="${rid}">`
             ).join('');
-            modalMessage.innerText = `sure to delete ${selectedCount} ?`;
+            modalMessage.innerText = `您确定要删除选中的 ${selectedCount} 条记录吗？`;
             openModal();
         }
     });

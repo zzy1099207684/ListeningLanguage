@@ -39,13 +39,27 @@ def read_all_store():
     return select_all_store()
 
 
-def insert_new_lines(new_lines, group_name=''):
+def insert_new_lines(new_lines, group_name='', new_group=None):
     """
-    新增插入时，带上指定的 group_name
+    新增插入时，带上指定的 group_name 或 new_group。
+    如果 new_group 存在，优先使用它作为 group_name。
     """
+    if new_group:
+        group_name = new_group.strip()
     for nl in new_lines:
         insert_store(group_name, nl)
-    # 插入后，无需立即更新 setting，因为新分组可能已经在 selected_groups 中
+    if group_name:
+        # 更新对应的 setting 表
+        if new_group:
+            update_setting_selected_groups('edit_choose', group_name)
+        # 如果需要将新组也添加到 combined_training，可以在此处处理
+        # 例如，假设有一个checkbox决定是否将新组添加到 combined_training
+        # 这里假设不自动添加到 combined_training
+        # 若有需求，可根据具体情况修改
+        # For example:
+        # if add_to_combined_training:
+        #     update_setting_selected_groups('combined_training', group_name)
+        pass
 
 
 def remove_line_by_text(text):
@@ -140,17 +154,21 @@ def update_settings_after_deletion():
     remaining_groups = get_all_remaining_groups()
 
     # 获取当前 setting 表中的 selected_groups
-    selected_groups = select_setting_by_name('edit_choose')  # 假设使用 'edit_choose' 作为名称
+    edit_choose_groups = select_setting_by_name('edit_choose')  # 'edit_choose' 用于 "choose group(s)"
+    combined_training_groups = select_setting_by_name('combined_training')  # 'combined_training' 用于 "combined training group"
 
     # 过滤掉已无数据的分组
-    updated_selected_groups = [g for g in selected_groups if g in remaining_groups]
+    updated_edit_choose = [g for g in edit_choose_groups if g in remaining_groups]
+    updated_combined_training = [g for g in combined_training_groups if g in remaining_groups]
 
     # 如果没有任何分组剩余，清空 selected_groups
     if not remaining_groups:
-        updated_selected_groups = []
+        updated_edit_choose = []
+        updated_combined_training = []
 
     # 更新 setting 表
-    upsert_setting('edit_choose', updated_selected_groups)
+    upsert_setting('edit_choose', updated_edit_choose)
+    upsert_setting('combined_training', updated_combined_training)
 
 
 def get_all_remaining_groups():
@@ -164,3 +182,13 @@ def get_all_remaining_groups():
         if group_name:
             group_set.add(group_name)
     return list(group_set)
+
+
+def update_setting_selected_groups(setting_name, new_group):
+    """
+    将新的组名添加到指定的 setting 表的 selected_groups 中（如果尚未存在）。
+    """
+    selected_groups = select_setting_by_name(setting_name)
+    if new_group and new_group not in selected_groups:
+        selected_groups.append(new_group)
+        upsert_setting(setting_name, selected_groups)
