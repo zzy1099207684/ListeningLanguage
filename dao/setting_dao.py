@@ -34,3 +34,31 @@ def set_setting(name, groups):
             json_str = json.dumps(groups)  # 转JSON
             cur.execute(UPSERT_SETTING, (name, json_str))
         conn.commit()
+
+
+def select_setting_by_name(name):
+    """
+    根据名称获取 selected_groups。
+    返回一个列表，如果没有找到则返回空列表。
+    """
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(SELECT_SETTING_BY_NAME, (name,))
+            row = cur.fetchone()
+    if row and row[0]:
+        try:
+            return json.loads(row[0])
+        except json.JSONDecodeError:
+            return []
+    return []
+
+def upsert_setting(name, selected_groups):
+    """
+    插入或更新 setting 表中的 selected_groups。
+    selected_groups 应为一个列表。
+    """
+    selected_groups_json = json.dumps(selected_groups)
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(UPSERT_SETTING, (name, selected_groups_json))
+        conn.commit()

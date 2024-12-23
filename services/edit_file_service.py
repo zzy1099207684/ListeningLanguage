@@ -2,19 +2,23 @@
 
 import hashlib
 import os
+from collections import defaultdict
 from dao.store_dao import (
     select_all_store,
     insert_store,
     delete_store_by_text,
+    delete_store_by_id,
     update_store_by_text,
-    select_id_by_text,
-    delete_store_by_id,                  # 新增
-    update_store_line_text_by_id         # 新增
+    update_store_line_text_by_id
 )
 from dao.translations_dao import (
     select_all_translations,
     upsert_translation,
     delete_translation
+)
+from dao.setting_dao import (
+    select_setting_by_name,
+    upsert_setting
 )
 
 AUDIO_PERSISTENT_DIR = 'audio_files'
@@ -37,34 +41,76 @@ def read_all_store():
 
 def insert_new_lines(new_lines, group_name=''):
     """
-    新增插入时，带上指定的group_name
+    新增插入时，带上指定的 group_name
     """
     for nl in new_lines:
         insert_store(group_name, nl)
+    # 插入后，无需立即更新 setting，因为新分组可能已经在 selected_groups 中
 
 
 def remove_line_by_text(text):
     """
-    原逻辑：通过文本删除。
-    一旦多个行的 line_text 相同，会全部被删。
-    同时删除对应翻译 & 音频。
+    通过文本删除行。
+    如果删除后某个分组没有任何数据，更新 setting 表以移除该分组。
+    同时删除对应的翻译和音频文件。
     """
     delete_audio_file(text)
     delete_translation(text)
     delete_store_by_text(text)
+    # 更新 setting 表
+    update_settings_after_deletion()
+
+
+def remove_line_by_id(row_id):
+    """
+    通过 ID 删除行。
+    如果删除后某个分组没有任何数据，更新 setting 表以移除该分组。
+    同时删除对应的翻译和音频文件。
+    """
+    old_text = get_line_text_by_id(row_id)
+    if old_text:
+        delete_audio_file(old_text)
+        delete_translation(old_text)
+        delete_store_by_id(row_id)
+        # 更新 setting 表
+        update_settings_after_deletion()
 
 
 def update_line_text(old_text, new_text, new_trans):
     """
-    原逻辑：通过文本更新，只更新首个匹配到的行。
+    通过文本更新行，只更新首个匹配到的行。
+    同时更新翻译和音频文件。
     """
     update_store_by_text(old_text, new_text)
     delete_audio_file(old_text)
     delete_translation(old_text)
     save_translations(new_text, new_trans)
+    # 如果分组发生变化，可能需要更新 setting 表
+    update_settings_after_deletion()
+
+
+def update_line_text_by_id(row_id, new_text, new_trans):
+    """
+    通过 ID 更新行。
+    同时更新翻译和音频文件。
+    """
+    old_text = get_line_text_by_id(row_id)
+    if old_text:
+        update_store_by_text(old_text, new_text)
+        delete_audio_file(old_text)
+        delete_translation(old_text)
+    else:
+        # 如果没有找到旧文本，直接更新
+        update_store_line_text_by_id(row_id, new_text)
+    save_translations(new_text, new_trans)
+    # 更新 setting 表以反映可能的分组变化
+    update_settings_after_deletion()
 
 
 def delete_audio_file(text):
+    """
+    删除对应文本的音频文件。
+    """
     text_hash = hashlib.sha256(text.encode('utf-8')).hexdigest()
     filename = f'audio_{text_hash}.mp3'
     file_path = os.path.join(AUDIO_PERSISTENT_DIR, filename)
@@ -72,45 +118,49 @@ def delete_audio_file(text):
         os.remove(file_path)
 
 
-# ================== 新增 ID 级别更新/删除逻辑 ==================
-
-def remove_line_by_id(row_id):
+def get_line_text_by_id(row_id):
     """
-    新增：通过 ID 删除行；
-         由于旧 remove_line_by_text() 会删除对应翻译和音频，这里调用前先查出旧文本，再复用。
+    获取指定 ID 的 line_text。
     """
     from dao.db_connection import get_db_connection
-    old_text = None
     with get_db_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT line_text FROM store WHERE id = %s LIMIT 1", (row_id,))
             row = cur.fetchone()
-            if row:
-                old_text = row[0]
-    if old_text:
-        remove_line_by_text(old_text)
-    # 最后按 ID 删除 store 表记录
-    delete_store_by_id(row_id)
+    return row[0] if row else None
 
 
-def update_line_text_by_id(row_id, new_text, new_trans):
+def update_settings_after_deletion():
     """
-    新增：通过 ID 更新行；
-         由于旧 update_line_text() 会同时删除旧翻译及音频，这里也要先获取旧文本再复用。
+    更新 setting 表中的 selected_groups。
+    如果某个分组在 store 表中已无数据，则从 selected_groups 中移除该分组。
+    如果 store 表中无任何数据，则清空 selected_groups。
     """
-    from dao.db_connection import get_db_connection
-    old_text = None
-    with get_db_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT line_text FROM store WHERE id = %s LIMIT 1", (row_id,))
-            row = cur.fetchone()
-            if row:
-                old_text = row[0]
-    if old_text:
-        update_line_text(old_text, new_text, new_trans)
-    else:
-        # 如果没找到旧文本，直接更新存储表；此情况一般不会出现
-        update_store_line_text_by_id(row_id, new_text)
-        delete_audio_file(new_text)  # 避免重复
-        delete_translation(new_text)
-        save_translations(new_text, new_trans)
+    # 获取 store 表中所有剩余的分组
+    remaining_groups = get_all_remaining_groups()
+
+    # 获取当前 setting 表中的 selected_groups
+    selected_groups = select_setting_by_name('edit_choose')  # 假设使用 'edit_choose' 作为名称
+
+    # 过滤掉已无数据的分组
+    updated_selected_groups = [g for g in selected_groups if g in remaining_groups]
+
+    # 如果没有任何分组剩余，清空 selected_groups
+    if not remaining_groups:
+        updated_selected_groups = []
+
+    # 更新 setting 表
+    upsert_setting('edit_choose', updated_selected_groups)
+
+
+def get_all_remaining_groups():
+    """
+    获取 store 表中所有存在的分组。
+    """
+    store_rows = read_all_store()
+    group_set = set()
+    for row in store_rows:
+        group_name = row[1] if row[1] else ""
+        if group_name:
+            group_set.add(group_name)
+    return list(group_set)
