@@ -410,48 +410,52 @@
 
     <div style="overflow-x: auto;">
         <table id="textTable">
-            <tr>
-                <th>
-                    <input type="checkbox" id="selectAllCheckbox" title="全选/全不选">
-                </th>
-                <th>ID</th>
-                <th>text</th>
-                <th>translation</th>
-                <th>
-                    操作
-                    <div class="direct-delete-container">
-                        <input type="checkbox" id="directDeleteCheckbox">
-                        <label for="directDeleteCheckbox">directly delete</label>
-                    </div>
-                </th>
-            </tr>
-            {% for (sid, line_text, translation) in lines %}
-            <tr id="row-{{ sid }}">
-                <td>
-                    <!-- 勾选时传递 row_id -->
-                    <input type="checkbox" class="select-checkbox" name="selected_lines" value="{{ sid }}">
-                </td>
-                <td>{{ sid }}</td>
-                <td class="line-text">{{ line_text }}</td>
-                <td class="translation-text">{{ translation }}</td>
-                <td>
-                    <!-- 删除按钮：通过AJAX处理 -->
-                    <button type="button" class="control-btn delete-btn ajax-delete-btn" data-row-id="{{ sid }}">删除</button>
+            <thead>
+                <tr>
+                    <th>
+                        <input type="checkbox" id="selectAllCheckbox" title="全选/全不选">
+                    </th>
+                    <th>ID</th>
+                    <th>text</th>
+                    <th>translation</th>
+                    <th>
+                        操作
+                        <div class="direct-delete-container">
+                            <input type="checkbox" id="directDeleteCheckbox">
+                            <label for="directDeleteCheckbox">directly delete</label>
+                        </div>
+                    </th>
+                </tr>
+            </thead>
+            <tbody id="textTableBody">
+                {% for (sid, line_text, translation) in lines %}
+                <tr id="row-{{ sid }}">
+                    <td>
+                        <!-- 勾选时传递 row_id -->
+                        <input type="checkbox" class="select-checkbox" name="selected_lines" value="{{ sid }}">
+                    </td>
+                    <td>{{ sid }}</td>
+                    <td class="line-text">{{ line_text }}</td>
+                    <td class="translation-text">{{ translation }}</td>
+                    <td>
+                        <!-- 删除按钮：通过AJAX处理 -->
+                        <button type="button" class="control-btn delete-btn ajax-delete-btn" data-row-id="{{ sid }}">删除</button>
 
-                    <!-- 更新表单：通过AJAX处理 -->
-                    <form method="POST" class="ajax-update-form" data-row-id="{{ sid }}"
-                          action="{{ url_for('edit_file.edit') }}">
-                        <input type="hidden" name="action" value="update">
-                        <input type="hidden" name="row_id" value="{{ sid }}">
-                        <input type="text" name="updated_text" value="{{ line_text }}" required
-                               style="width: 150px; padding: 5px; margin-right: 5px;">
-                        <input type="text" name="updated_translation" value="{{ translation }}" required
-                               style="width: 200px; padding: 5px; margin-right: 5px;">
-                        <button type="submit" class="control-btn">更新</button>
-                    </form>
-                </td>
-            </tr>
-            {% endfor %}
+                        <!-- 更新表单：通过AJAX处理 -->
+                        <form method="POST" class="ajax-update-form" data-row-id="{{ sid }}"
+                              action="{{ url_for('edit_file.edit') }}">
+                            <input type="hidden" name="action" value="update">
+                            <input type="hidden" name="row_id" value="{{ sid }}">
+                            <input type="text" name="updated_text" value="{{ line_text }}" required
+                                   style="width: 150px; padding: 5px; margin-right: 5px;">
+                            <input type="text" name="updated_translation" value="{{ translation }}" required
+                                   style="width: 200px; padding: 5px; margin-right: 5px;">
+                            <button type="submit" class="control-btn">更新</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
         </table>
     </div>
 
@@ -459,52 +463,64 @@
         <button type="button" class="control-btn batch-delete-btn" id="deleteSelectedBtn">delete choose</button>
     </div>
 
-    <div class="pagination">
-        {% if current_page > 1 %}
-        <a href="{{ url_for('edit_file.edit', page=1, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}">&laquo; first</a>
-        <a href="{{ url_for('edit_file.edit', page=current_page - 1, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}">&lt; last</a>
+    <div class="pagination" id="pagination">
+        {% if total_pages <= 5 %}
+            {% for page in range(1, total_pages + 1) %}
+                {% if page == current_page %}
+                    <span class="active">{{ page }}</span>
+                {% else %}
+                    <a href="{{ url_for('edit_file.edit', page=page, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}" class="pagination-link">{{ page }}</a>
+                {% endif %}
+            {% endfor %}
         {% else %}
-        <span class="disabled">&laquo; first</span>
-        <span class="disabled">&lt; last</span>
+            {% if current_page <= 3 %}
+                {% for page in range(1, 5) %}
+                    {% if page == current_page %}
+                        <span class="active">{{ page }}</span>
+                    {% else %}
+                        <a href="{{ url_for('edit_file.edit', page=page, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}" class="pagination-link">{{ page }}</a>
+                    {% endif %}
+                {% endfor %}
+                <span>...</span>
+                <a href="{{ url_for('edit_file.edit', page=total_pages, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}" class="pagination-link">{{ total_pages }}</a>
+            {% elif current_page >= total_pages - 2 %}
+                <a href="{{ url_for('edit_file.edit', page=1, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}" class="pagination-link">1</a>
+                <a href="{{ url_for('edit_file.edit', page=2, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}" class="pagination-link">2</a>
+                <span>...</span>
+                {% for page in range(total_pages - 3, total_pages + 1) %}
+                    {% if page == current_page %}
+                        <span class="active">{{ page }}</span>
+                    {% else %}
+                        <a href="{{ url_for('edit_file.edit', page=page, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}" class="pagination-link">{{ page }}</a>
+                    {% endif %}
+                {% endfor %}
+            {% else %}
+                <a href="{{ url_for('edit_file.edit', page=1, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}" class="pagination-link">1</a>
+                <a href="{{ url_for('edit_file.edit', page=2, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}" class="pagination-link">2</a>
+                <span>...</span>
+                <span class="active">{{ current_page }}</span>
+                <span>...</span>
+                <a href="{{ url_for('edit_file.edit', page=total_pages, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}" class="pagination-link">{{ total_pages }}</a>
+            {% endif %}
         {% endif %}
 
-        {% if total_pages <= 4 %}
-        {% for page in range(1, total_pages + 1) %}
-        {% if page == current_page %}
-        <span class="active">{{ page }}</span>
+        {% if current_page > 1 and total_pages > 1 %}
+            <a href="{{ url_for('edit_file.edit', page=1, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}" class="pagination-link">&laquo; first</a>
+            <a href="{{ url_for('edit_file.edit', page=current_page - 1, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}" class="pagination-link">&lt; last</a>
         {% else %}
-        <a href="{{ url_for('edit_file.edit', page=page, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}">{{ page }}</a>
-        {% endif %}
-        {% endfor %}
-        {% else %}
-        {% for page in range(1, 3) %}
-        {% if page == current_page %}
-        <span class="active">{{ page }}</span>
-        {% else %}
-        <a href="{{ url_for('edit_file.edit', page=page, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}">{{ page }}</a>
-        {% endif %}
-        {% endfor %}
-        {% if current_page > 3 and current_page < total_pages - 1 %}
-        <span>...</span>
-        {% elif current_page == 3 %}
-        <a href="{{ url_for('edit_file.edit', page=3, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}">3</a>
-        {% elif current_page == total_pages - 1 %}
-        <a href="{{ url_for('edit_file.edit', page=total_pages - 1, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}">{{ total_pages - 1 }}</a>
-        {% endif %}
-        {% if current_page != total_pages and total_pages > 2 %}
-        <a href="{{ url_for('edit_file.edit', page=total_pages, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}">{{ total_pages }}</a>
-        {% endif %}
+            <span class="disabled">&laquo; first</span>
+            <span class="disabled">&lt; last</span>
         {% endif %}
 
-        {% if current_page < total_pages %}
-        <a href="{{ url_for('edit_file.edit', page=current_page + 1, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}">next&gt;</a>
-        <a href="{{ url_for('edit_file.edit', page=total_pages, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}">final&raquo;</a>
+        {% if current_page < total_pages and total_pages > 1 %}
+            <a href="{{ url_for('edit_file.edit', page=current_page + 1, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}" class="pagination-link">next&gt;</a>
+            <a href="{{ url_for('edit_file.edit', page=total_pages, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}" class="pagination-link">final&raquo;</a>
         {% else %}
-        <span class="disabled">next&gt;</span>
-        <span class="disabled">final&raquo;</span>
+            <span class="disabled">next&gt;</span>
+            <span class="disabled">final&raquo;</span>
         {% endif %}
 
-        <form method="GET" action="{{ url_for('edit_file.edit') }}">
+        <form method="GET" action="{{ url_for('edit_file.edit') }}" class="pagination-link">
             <input type="number" name="page" min="1" max="{{ total_pages }}" placeholder="page num" required>
             {% for sg in selected_groups %}
             <input type="hidden" name="groups" value="{{ sg }}">
@@ -860,6 +876,58 @@
             checkboxes.forEach(cb => {
                 cb.checked = selectAllCheckbox.checked;
             });
+        });
+
+        // AJAX-based pagination
+        // Function to handle AJAX pagination
+        function loadPage(page) {
+            // Get current search and group parameters
+            const params = new URLSearchParams(window.location.search);
+            params.set('page', page);
+            const url = "{{ url_for('edit_file.edit') }}" + '?' + params.toString();
+
+            $.ajax({
+                url: url,
+                type: 'GET',
+                dataType: 'html',
+                success: function(response, textStatus, jqXHR) {
+                    // Create a temporary DOM element to parse the response
+                    const tempDiv = $('<div>').html(response);
+
+                    // Extract the new table body and pagination
+                    const newTableBody = tempDiv.find('#textTableBody').html();
+                    const newPagination = tempDiv.find('#pagination').html();
+
+                    // Update the table body and pagination
+                    $('#textTableBody').html(newTableBody);
+                    $('#pagination').html(newPagination);
+                },
+                error: function(jqXHR, textStatus, errorThrown) {
+                    alert('分页加载失败: ' + errorThrown);
+                }
+            });
+        }
+
+        // Event delegation for pagination links and form
+        $(document).on('click', '.pagination-link', function(e) {
+            e.preventDefault();
+            const href = $(this).attr('href');
+            if (href) {
+                const urlParams = new URLSearchParams(href.split('?')[1]);
+                const page = urlParams.get('page');
+                if (page) {
+                    loadPage(page);
+                }
+            }
+        });
+
+        $(document).on('submit', '.pagination form', function(e) {
+            e.preventDefault();
+            const pageInput = $(this).find('input[name="page"]');
+            const page = pageInput.val();
+            if (page) {
+                loadPage(page);
+            }
         });
     });
 </script>
