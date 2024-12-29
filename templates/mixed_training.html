@@ -1,3 +1,5 @@
+<!--mixed_training.html-->
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -93,9 +95,13 @@
       }
       #other-text-box {
           margin-bottom: 20px;
-          font-size: 24px;
-          color: #888;
-          font-style: italic;
+          font-size: 20px;
+          color: #666;
+          line-height: 1.5;
+          background-color: #f5f5f5;
+          padding: 10px;
+          border-radius: 8px;
+          white-space: pre-line;
       }
       #speaker-btn {
           font-size: 24px;
@@ -127,9 +133,7 @@
   <div class="controls">
       <button class="control-btn" id="remember-btn">remembered</button>
       <button class="control-btn" id="forget-btn">unremembered</button>
-      <!-- reveal按钮 -->
       <button class="control-btn" id="reveal-btn">reveal</button>
-      <!-- next按钮，初始隐藏 -->
       <button class="control-btn" id="next-btn" style="display:none;">next</button>
   </div>
   <div class="controls">
@@ -195,6 +199,7 @@
 
                           updateQuestionDisplay();
 
+                          // 如果一开始就是英文，则读出音频
                           if (currentLang === 'en') {
                               playAudio();
                           }
@@ -229,6 +234,7 @@
           }
       }
 
+      // 统一调用 /mixed_training_mark 显示中英并播放英文音频
       function markChoice(choice) {
           fetch('/mixed_training_mark', {
               method: 'POST',
@@ -238,55 +244,28 @@
           .then(res => res.json())
           .then(data => {
               if (data.status === 'success') {
-                  otherTextBox.innerText = data.other_text;
+                  // 显示: 英文和中文(无前缀)
+                  const enText = data.found_en || '';
+                  const zhText = data.found_zh || '';
+                  otherTextBox.innerHTML = enText + "\n" + zhText;
+
+                  // 隐藏 记忆/未记住/揭示, 显示下一步
                   rememberBtn.style.display = 'none';
                   forgetBtn.style.display = 'none';
                   revealBtn.style.display = 'none';
-                  phase = 'answer';
                   nextBtn.style.display = 'inline-block';
+                  phase = 'answer';
+
+                  // 无论原先是看中还是看英, 此时都应读出英文音频
+                  playAudio();
               }
           })
       }
 
-      // 修复：若当前文本是中文，点击reveal应该显示英文
-      // 若是英文，则保持原先的翻译逻辑
       revealBtn.onclick = () => {
           stopAudio();
           if (phase === 'question') {
-              // 如果当前文本是英文 => 调用 /translate 获取中文翻译
-              if (currentLang === 'en') {
-                  fetch('/translate', {
-                      method: 'POST',
-                      headers: {'Content-Type': 'application/json'},
-                      body: JSON.stringify({text: currentShowText})
-                  })
-                  .then(res => res.json())
-                  .then(data => {
-                      if (data.status === 'success') {
-                          otherTextBox.innerText = data.translated_text;
-                      } else {
-                          otherTextBox.innerText = '无翻译可用。';
-                      }
-                      playAudio();
-                  })
-              }
-              // 如果当前文本是中文 => 调用 /mixed_training_mark?choice=reveal (见 app.py 修改)
-              else {
-                  fetch('/mixed_training_mark', {
-                      method: 'POST',
-                      headers: {'Content-Type': 'application/json'},
-                      body: JSON.stringify({show_text: currentShowText, choice: 'reveal', lang: currentLang})
-                  })
-                  .then(res => res.json())
-                  .then(data => {
-                      if (data.status === 'success') {
-                          otherTextBox.innerText = data.other_text;
-                      } else {
-                          otherTextBox.innerText = '无翻译可用。';
-                      }
-                      playAudio();
-                  })
-              }
+              markChoice('reveal');
           }
       };
 
@@ -294,7 +273,6 @@
           stopAudio();
           if (phase === 'question') {
               markChoice('known');
-              playAudio();
           }
       }
 
@@ -302,7 +280,6 @@
           stopAudio();
           if (phase === 'question') {
               markChoice('unknown');
-              playAudio();
           }
       }
 

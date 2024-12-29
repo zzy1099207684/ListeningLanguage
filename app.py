@@ -63,6 +63,9 @@ def initialize_session_vars():
         session['random_order'] = []
     if 'random_index' not in session:
         session['random_index'] = 0
+    # 额外用于 mixed_training_next，确保上一次选择的单词信息
+    if 'last_en' not in session:
+        session['last_en'] = None
 
 
 @app.route('/restart', methods=['GET'])
@@ -332,6 +335,7 @@ def translate_text():
         return jsonify({'status': 'error', 'message': str(e)})
 
 
+import json
 @app.route('/scan_resources', methods=['GET'])
 def scan_resources():
     def generate_events():
@@ -339,7 +343,8 @@ def scan_resources():
             rows = select_all_store()
             all_lines = [r[2] for r in rows]
             if not all_lines:
-                yield f"data: {{\"status\":\"done\",\"message\":\"no data\"}}\n\n"
+                data = {"status": "done", "message": "no data"}
+                yield f"data: {json.dumps(data)}\n\n"
                 return
 
             with translations_lock:
@@ -347,7 +352,7 @@ def scan_resources():
 
             current_texts = set()
             for line in all_lines:
-                text_clean = re.sub(r'<\\w+:\\s*([^>]+)>', r'\\1', line)
+                text_clean = re.sub(r'<\w+:\s*([^>]+)>', r'\1', line)
                 current_texts.add(text_clean)
 
             # 删除旧翻译及音频
@@ -363,12 +368,13 @@ def scan_resources():
             lines_to_scan = []
             for line in all_lines:
                 filename, file_path = get_audio_file_path(line)
-                text_clean = re.sub(r'<\\w+:\\s*([^>]+)>', r'\\1', line)
+                text_clean = re.sub(r'<\w+:\s*([^>]+)>', r'\1', line)
                 if text_clean not in current_translations or not os.path.exists(file_path):
                     lines_to_scan.append(line)
 
             if not lines_to_scan:
-                yield f"data: {{\"status\":\"done\"}}\n\n"
+                data = {"status": "done"}
+                yield f"data: {json.dumps(data)}\n\n"
                 return
 
             for i, text in enumerate(lines_to_scan):
@@ -377,18 +383,26 @@ def scan_resources():
                     tts = gTTS(text=text, lang='en', tld='com')
                     tts.save(file_path)
 
-                text_clean = re.sub(r'<\\w+:\\s*([^>]+)>', r'\\1', text)
+                text_clean = re.sub(r'<\w+:\s*([^>]+)>', r'\1', text)
                 if text_clean not in current_translations:
                     translated_text = GoogleTranslator(source='en', target='zh-CN').translate(text_clean)
                     upsert_translation(text_clean, translated_text)
                     current_translations[text_clean] = translated_text
 
                 progress = (i + 1) / len(lines_to_scan) * 100
-                yield f"data: {{\"status\":\"working\",\"progress\":{progress},\"current_index\":{i + 1},\"total\":{len(lines_to_scan)}}}\n\n"
+                data = {
+                    "status": "working",
+                    "progress": progress,
+                    "current_index": i + 1,
+                    "total": len(lines_to_scan)
+                }
+                yield f"data: {json.dumps(data)}\n\n"
 
-            yield f"data: {{\"status\":\"done\"}}\n\n"
+            data = {"status": "done"}
+            yield f"data: {json.dumps(data)}\n\n"
         except Exception as e:
-            yield f"data: {{\"status\":\"error\",\"message\":\"{str(e)}\"}}\n\n"
+            error_data = {"status": "error", "message": str(e)}
+            yield f"data: {json.dumps(error_data)}\n\n"
 
     return Response(generate_events(), mimetype='text/event-stream')
 
@@ -421,17 +435,29 @@ def mixed_training_setup():
         return redirect(url_for('index'))
 
     all_translations = select_all_translations()
+
     import random
     sample_count = min(10, len(lines_in_group))
     chosen_lines = random.sample(lines_in_group, sample_count)
 
+    # 保证不连续超过3次同方向
+    directions_list = []
+    for i in range(sample_count):
+        while True:
+            direction_candidate = random.choice(['en2zh', 'zh2en'])
+            if len(directions_list) >= 2 and directions_list[-1] == directions_list[-2] == direction_candidate:
+                continue
+            else:
+                directions_list.append(direction_candidate)
+                break
+
     mixed_set = []
-    for l in chosen_lines:
+    for idx, l in enumerate(chosen_lines):
         text_clean = re.sub(r'<\\w+:\\s*([^>]+)>', r'\\1', l)
         zh_trans = all_translations.get(text_clean, None)
         if zh_trans is None:
             zh_trans = "未找到翻译，请先进行资源扫描（scan new resource）以生成翻译。"
-        direction = random.choice(['en2zh', 'zh2en'])
+        direction = directions_list[idx]
         mixed_set.append({
             'en': text_clean,
             'zh': zh_trans,
@@ -441,6 +467,7 @@ def mixed_training_setup():
 
     session['mixed_set_initial'] = [dict(item) for item in mixed_set]
     session['mixed_set'] = mixed_set
+    session['last_en'] = None  # 重新开始时重置
     return redirect(url_for('mixed_training'))
 
 
@@ -451,22 +478,60 @@ def mixed_training():
 
 @app.route('/mixed_training_next', methods=['GET'])
 def mixed_training_next():
+    """
+    选出下一个单词时，若混合集中不只剩一个，则需要与上一次选的(en)不同。
+    """
     super_mixed = request.args.get('super_mixed', '0')
     mixed_set = session.get('mixed_set', [])
     if not mixed_set:
         return jsonify({'status': 'done'})
 
     import random
-    sentence = random.choice(mixed_set)
     remaining_count = len(mixed_set)
 
-    if super_mixed == '1':
-        show_lang = random.choice(['en', 'zh'])
-    else:
-        if sentence['direction'] == 'en2zh':
-            show_lang = 'en'
+    # 若只剩一个，直接取
+    if remaining_count == 1:
+        sentence = mixed_set[0]
+        if super_mixed == '1':
+            show_lang = random.choice(['en', 'zh'])
         else:
-            show_lang = 'zh'
+            if sentence['direction'] == 'en2zh':
+                show_lang = 'en'
+            else:
+                show_lang = 'zh'
+    else:
+        # 若多于1个，循环挑选直到与上次选的不相同(或尝试10次)
+        last_en = session.get('last_en', None)
+        sentence = None
+        show_lang = 'en'  # 先给个默认
+        for _ in range(10):
+            candidate = random.choice(mixed_set)
+            if super_mixed == '1':
+                candidate_lang = random.choice(['en', 'zh'])
+            else:
+                if candidate['direction'] == 'en2zh':
+                    candidate_lang = 'en'
+                else:
+                    candidate_lang = 'zh'
+
+            # 若此candidate的 en 跟上一次相同则跳过，否则选中
+            if candidate['en'] != last_en:
+                sentence = candidate
+                show_lang = candidate_lang
+                break
+        # 若10次都没跳过(理论上极少发生), 就直接拿这个candidate
+        if not sentence:
+            sentence = mixed_set[0]
+            if super_mixed == '1':
+                show_lang = random.choice(['en', 'zh'])
+            else:
+                if sentence['direction'] == 'en2zh':
+                    show_lang = 'en'
+                else:
+                    show_lang = 'zh'
+
+    # 记录本次选用的 en，用于下次对比
+    session['last_en'] = sentence['en']
 
     response = {
         'status': 'success',
@@ -501,20 +566,30 @@ def mixed_training_mark():
     if not found:
         return jsonify({'status': 'error', 'message': 'Sentence not found'})
 
-    other_lang = 'zh' if lang == 'en' else 'en'
-    other_text = found[other_lang]
+    found_en = found['en']
+    found_zh = found['zh']
 
     if choice == 'reveal':
-        return jsonify({'status': 'success', 'other_text': other_text})
+        return jsonify({'status': 'success', 'found_en': found_en, 'found_zh': found_zh})
     elif choice == 'known':
         mixed_set.remove(found)
         session['mixed_set'] = mixed_set
-        return jsonify({'status': 'success', 'other_text': other_text, 'done_for_this': True})
+        return jsonify({
+            'status': 'success',
+            'found_en': found_en,
+            'found_zh': found_zh,
+            'done_for_this': True
+        })
     else:
         # unremembered
         found['wrong_count'] += 1
         session['mixed_set'] = mixed_set
-        return jsonify({'status': 'success', 'other_text': other_text, 'done_for_this': False})
+        return jsonify({
+            'status': 'success',
+            'found_en': found_en,
+            'found_zh': found_zh,
+            'done_for_this': False
+        })
 
 
 @app.route('/mixed_training_check_finish', methods=['GET'])
