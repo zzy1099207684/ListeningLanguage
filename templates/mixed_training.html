@@ -133,7 +133,7 @@
   <div class="controls">
       <button class="control-btn" id="remember-btn">remembered</button>
       <button class="control-btn" id="forget-btn">unremembered</button>
-      <button class="control-btn" id="reveal-btn">reveal</button>
+<!--      <button class="control-btn" id="reveal-btn">reveal</button>-->
       <button class="control-btn" id="next-btn" style="display:none;">next</button>
   </div>
   <div class="controls">
@@ -169,7 +169,7 @@
       const rememberBtn = document.getElementById('remember-btn');
       const forgetBtn = document.getElementById('forget-btn');
       const nextBtn = document.getElementById('next-btn');
-      const revealBtn = document.getElementById('reveal-btn');
+      // const revealBtn = document.getElementById('reveal-btn');
 
       function loadNextSentence() {
           const superMixedParam = superMixedCheckbox.checked ? '1' : '0';
@@ -193,13 +193,12 @@
                           phase = 'question';
                           rememberBtn.style.display = 'inline-block';
                           forgetBtn.style.display = 'inline-block';
-                          revealBtn.style.display = 'inline-block';
+                          // revealBtn.style.display = 'inline-block';
                           nextBtn.style.display = 'none';
                           document.getElementById('remaining-count').innerText = 'remaining quantity: ' + data.remaining_count;
 
                           updateQuestionDisplay();
 
-                          // 如果一开始就是英文，则读出音频
                           if (currentLang === 'en') {
                               playAudio();
                           }
@@ -252,7 +251,7 @@
                   // 隐藏 记忆/未记住/揭示, 显示下一步
                   rememberBtn.style.display = 'none';
                   forgetBtn.style.display = 'none';
-                  revealBtn.style.display = 'none';
+                  // revealBtn.style.display = 'none';
                   nextBtn.style.display = 'inline-block';
                   phase = 'answer';
 
@@ -262,12 +261,12 @@
           })
       }
 
-      revealBtn.onclick = () => {
-          stopAudio();
-          if (phase === 'question') {
-              markChoice('reveal');
-          }
-      };
+      // revealBtn.onclick = () => {
+      //     stopAudio();
+      //     if (phase === 'question') {
+      //         markChoice('reveal');
+      //     }
+      // };
 
       rememberBtn.onclick = () => {
           stopAudio();
