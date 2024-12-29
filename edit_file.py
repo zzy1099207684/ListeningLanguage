@@ -14,7 +14,8 @@ from services.edit_file_service import (
     remove_line_by_text,
     remove_line_by_id,
     update_line_text,
-    update_line_text_by_id
+    update_line_text_by_id,
+    save_translations
 )
 
 from dao.db_connection import get_db_connection
@@ -80,10 +81,16 @@ def edit():
 
         if action == 'add':
             new_line = request.form.get('new_line', '')
+            new_line_translation = request.form.get('new_line_translation', '')
             new_group = request.form.get('new_group', '').strip()
             existing_group = request.form.get('existing_group', '').strip()
+
+            # 处理多行输入
             new_lines = new_line.split('\n')
             new_lines = [x.strip() for x in new_lines if x.strip()]
+
+            new_trans_lines = new_line_translation.split('\n')
+            new_trans_lines = [x.strip() for x in new_trans_lines if x.strip()]
 
             # 优先使用 new_group，如果存在则忽略 existing_group
             if new_group:
@@ -92,7 +99,12 @@ def edit():
                 group_name = existing_group
 
             if new_lines and group_name:
+                # 1. 插入store表
                 insert_new_lines(new_lines, group_name=group_name, new_group=new_group)
+                # 2. 插入(或更新) translations表
+                for i, text_line in enumerate(new_lines):
+                    if i < len(new_trans_lines):
+                        save_translations(text_line, new_trans_lines[i])
                 flash('新行已添加。', 'success')
             else:
                 flash('请确保有文本内容和组名。', 'error')
@@ -149,15 +161,13 @@ def edit():
         current_page = 1
 
     # 先把所有行整合
-    filtered_rows = []
     if selected_groups:
         # 有勾选分组
         all_rows_in_group = []
         for g in selected_groups:
             if g in group_map:
                 all_rows_in_group.extend(group_map[g])
-        # 去重+原顺序：此处可根据项目需求来定
-        # 这里简单处理：转dict后再转回list
+        # 去重+原顺序
         unique_dict = {}
         for (sid, ltext) in all_rows_in_group:
             unique_dict[sid] = ltext
@@ -167,6 +177,7 @@ def edit():
         rows_in_group = [(r[0], r[2]) for r in rows]
 
     # 再根据搜索关键字过滤
+    filtered_rows = []
     if search_query:
         for (sid, ltext) in rows_in_group:
             if search_query.lower() in ltext.lower():
