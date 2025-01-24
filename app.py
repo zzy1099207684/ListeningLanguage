@@ -49,6 +49,7 @@ def delete_temp_files():
 
 atexit.register(delete_temp_files)
 
+
 @app.before_request
 def initialize_session_vars():
     if 'current_index' not in session:
@@ -63,9 +64,22 @@ def initialize_session_vars():
         session['random_order'] = []
     if 'random_index' not in session:
         session['random_index'] = 0
-    # 额外用于 mixed_training_next，确保上一次选择的单词信息
     if 'last_en' not in session:
         session['last_en'] = None
+
+
+def create_audio_if_not_exists(original_text, file_path):
+    """
+    若音频文件不存在，则生成音频文件。
+    若文本中包含'/'，则将'/'替换为' ... '，在朗读中产生短暂停顿（约0.5秒左右）。
+    """
+    if os.path.exists(file_path):
+        return
+    # 遇到 / => 替换为 ' ... '
+    mod_text = original_text.replace('/', ' ... ')
+
+    tts = gTTS(text=mod_text, lang='en', tld='com')
+    tts.save(file_path)
 
 
 @app.route('/restart', methods=['GET'])
@@ -162,10 +176,10 @@ def play():
             session['current_index'] = 0
         line_index = session['current_index']
         text = current_lines[line_index]
+
         filename, file_path = get_audio_file_path(text)
-        if not os.path.exists(file_path):
-            tts = gTTS(text=text, lang='en', tld='com')
-            tts.save(file_path)
+        create_audio_if_not_exists(text, file_path)
+
         response = {
             'status': 'success',
             'audio_url': f'/audio/{filename}',
@@ -187,10 +201,10 @@ def play():
 
         line_index = session['random_order'][session['random_index']]
         text = current_lines[line_index]
+
         filename, file_path = get_audio_file_path(text)
-        if not os.path.exists(file_path):
-            tts = gTTS(text=text, lang='en', tld='com')
-            tts.save(file_path)
+        create_audio_if_not_exists(text, file_path)
+
         response = {
             'status': 'success',
             'audio_url': f'/audio/{filename}',
@@ -379,9 +393,7 @@ def scan_resources():
 
             for i, text in enumerate(lines_to_scan):
                 filename, file_path = get_audio_file_path(text)
-                if not os.path.exists(file_path):
-                    tts = gTTS(text=text, lang='en', tld='com')
-                    tts.save(file_path)
+                create_audio_if_not_exists(text, file_path)
 
                 text_clean = re.sub(r'<\w+:\s*([^>]+)>', r'\1', text)
                 if text_clean not in current_translations:
@@ -467,7 +479,7 @@ def mixed_training_setup():
 
     session['mixed_set_initial'] = [dict(item) for item in mixed_set]
     session['mixed_set'] = mixed_set
-    session['last_en'] = None  # 重新开始时重置
+    session['last_en'] = None
     return redirect(url_for('mixed_training'))
 
 
@@ -478,9 +490,6 @@ def mixed_training():
 
 @app.route('/mixed_training_next', methods=['GET'])
 def mixed_training_next():
-    """
-    选出下一个单词时，若混合集中不只剩一个，则需要与上一次选的(en)不同。
-    """
     super_mixed = request.args.get('super_mixed', '0')
     mixed_set = session.get('mixed_set', [])
     if not mixed_set:
@@ -503,7 +512,7 @@ def mixed_training_next():
         # 若多于1个，循环挑选直到与上次选的不相同(或尝试10次)
         last_en = session.get('last_en', None)
         sentence = None
-        show_lang = 'en'  # 先给个默认
+        show_lang = 'en'
         for _ in range(10):
             candidate = random.choice(mixed_set)
             if super_mixed == '1':
@@ -514,12 +523,10 @@ def mixed_training_next():
                 else:
                     candidate_lang = 'zh'
 
-            # 若此candidate的 en 跟上一次相同则跳过，否则选中
             if candidate['en'] != last_en:
                 sentence = candidate
                 show_lang = candidate_lang
                 break
-        # 若10次都没跳过(理论上极少发生), 就直接拿这个candidate
         if not sentence:
             sentence = mixed_set[0]
             if super_mixed == '1':
@@ -530,7 +537,6 @@ def mixed_training_next():
                 else:
                     show_lang = 'zh'
 
-    # 记录本次选用的 en，用于下次对比
     session['last_en'] = sentence['en']
 
     response = {
@@ -542,9 +548,7 @@ def mixed_training_next():
 
     text_clean = sentence['en']
     filename, file_path = get_audio_file_path(text_clean)
-    if not os.path.exists(file_path):
-        tts = gTTS(text=text_clean, lang='en', tld='com')
-        tts.save(file_path)
+    create_audio_if_not_exists(text_clean, file_path)
     response['audio_url'] = f'/audio/{filename}'
 
     return jsonify(response)
@@ -581,7 +585,6 @@ def mixed_training_mark():
             'done_for_this': True
         })
     else:
-        # unremembered
         found['wrong_count'] += 1
         session['mixed_set'] = mixed_set
         return jsonify({

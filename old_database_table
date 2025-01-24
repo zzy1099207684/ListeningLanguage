@@ -1,0 +1,38 @@
+create table setting
+(
+    id              serial
+        primary key,
+    name            text not null
+        unique,
+    selected_groups text
+);
+
+alter table setting
+    owner to postgres;
+
+
+
+create table store
+(
+    id         serial
+        primary key,
+    group_name text,
+    line_text  text not null
+);
+
+alter table store
+    owner to postgres;
+
+
+create table translations
+(
+    id              serial
+        primary key,
+    original_text   text not null
+        unique,
+    translated_text text
+);
+
+alter table translations
+    owner to postgres;
+
