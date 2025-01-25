@@ -20,7 +20,6 @@
             display: flex;
             justify-content: center;
         }
-
         .container {
             width: 100%;
             max-width: 1200px;
@@ -29,26 +28,22 @@
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-
         h1 {
             text-align: center;
             color: #4A90E2;
             margin-bottom: 20px;
             font-size: 24px;
         }
-
         .search-box {
             margin-bottom: 15px;
             text-align: right;
         }
-
         .search-box form {
             display: flex;
             justify-content: flex-end;
             align-items: center;
             gap: 10px;
         }
-
         .search-box input[type="text"] {
             width: 100%;
             max-width: 300px;
@@ -57,7 +52,6 @@
             border-radius: 4px;
             font-size: 16px;
         }
-
         .search-box button {
             padding: 8px 16px;
             background-color: #4A90E2;
@@ -68,11 +62,9 @@
             font-size: 16px;
             transition: background-color 0.3s;
         }
-
         .search-box button:hover {
             background-color: #357ABD;
         }
-
         .group-selection {
             margin-bottom: 15px;
             display: flex;
@@ -80,19 +72,16 @@
             gap: 10px;
             flex-wrap: wrap;
         }
-
         .group-selection label {
             font-size: 16px;
             font-weight: bold;
             min-width: 150px;
         }
-
         table {
             width: 100%;
             border-collapse: collapse;
             margin-bottom: 20px;
         }
-
         th, td {
             padding: 10px;
             border: 1px solid #ddd;
@@ -100,13 +89,11 @@
             vertical-align: middle;
             font-size: 14px;
         }
-
         th {
             background-color: #4A90E2;
             color: white;
             position: relative;
         }
-
         .direct-delete-container {
             position: absolute;
             right: 10px;
@@ -116,30 +103,25 @@
             align-items: center;
             gap: 5px;
         }
-
         .direct-delete-container input[type="checkbox"] {
             width: 20px;
             height: 20px;
             cursor: pointer;
         }
-
         .direct-delete-container label {
             font-size: 14px;
             cursor: pointer;
             color: #fff;
         }
-
         .form-group {
             margin-bottom: 15px;
         }
-
         label {
             display: block;
             margin-bottom: 5px;
             font-weight: bold;
             font-size: 16px;
         }
-
         input[type="text"], textarea {
             width: 100%;
             padding: 10px;
@@ -147,7 +129,6 @@
             border-radius: 4px;
             font-size: 14px;
         }
-
         .buttons {
             display: flex;
             justify-content: center;
@@ -155,7 +136,6 @@
             margin-bottom: 20px;
             flex-wrap: wrap;
         }
-
         .buttons button {
             background-color: #4A90E2;
             border: none;
@@ -168,11 +148,9 @@
             flex: 1 1 200px;
             max-width: 300px;
         }
-
         .buttons button:hover:not(:disabled) {
             background-color: #357ABD;
         }
-
         .control-btn:disabled {
             background-color: #a0c4e8;
             cursor: not-allowed;
@@ -180,7 +158,6 @@
             transform: none;
             box-shadow: none;
         }
-
         .control-btn {
             background-color: #4A90E2;
             border: none;
@@ -192,19 +169,15 @@
             margin-left: 5px;
             font-size: 14px;
         }
-
         .control-btn:hover:not(:disabled) {
             background-color: #357ABD;
         }
-
         .batch-delete-btn {
             background-color: #E94B3C;
         }
-
         .batch-delete-btn:hover:not(:disabled) {
             background-color: #C13C2E;
         }
-
         .pagination {
             display: flex;
             justify-content: center;
@@ -214,7 +187,6 @@
             flex-wrap: wrap;
             align-items: center;
         }
-
         .pagination a, .pagination span {
             padding: 8px 12px;
             text-decoration: none;
@@ -224,42 +196,35 @@
             transition: background-color 0.3s, color 0.3s;
             font-size: 14px;
         }
-
         .pagination a:hover {
             background-color: #4A90E2;
             color: white;
         }
-
         .pagination .active {
             background-color: #4A90E2;
             color: white;
             pointer-events: none;
         }
-
         .pagination .disabled {
             color: #ccc;
             border-color: #ccc;
             pointer-events: none;
         }
-
         .pagination form {
             display: flex;
             align-items: center;
             gap: 5px;
             flex-wrap: wrap;
         }
-
         .pagination form input[type="number"] {
             width: 60px;
             padding: 5px;
             font-size: 14px;
         }
-
         .pagination form button {
             padding: 5px 10px;
             font-size: 14px;
         }
-
         .modal {
             display: none;
             position: fixed;
@@ -271,7 +236,6 @@
             overflow: auto;
             background-color: rgba(0, 0, 0, 0.4);
         }
-
         .modal-content {
             background-color: #fefefe;
             margin: 10% auto;
@@ -283,14 +247,12 @@
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
             text-align: center;
         }
-
         .modal-buttons {
             margin-top: 20px;
             display: flex;
             justify-content: center;
             gap: 20px;
         }
-
         .modal-buttons button {
             padding: 8px 16px;
             border: none;
@@ -299,26 +261,21 @@
             font-size: 16px;
             transition: background-color 0.3s;
         }
-
         .modal-buttons .confirm-btn {
             background-color: #4A90E2;
             color: white;
         }
-
         .modal-buttons .confirm-btn:hover {
             background-color: #357ABD;
         }
-
         .modal-buttons .cancel-btn {
             background-color: #ccc;
             color: #333;
         }
-
         .modal-buttons .cancel-btn:hover {
             background-color: #999;
         }
-
-        /* 新增：行数显示样式 */
+        /* 行数统计显示 */
         .line-counter {
             position: absolute;
             bottom: 5px;
@@ -326,67 +283,54 @@
             font-size: 12px;
             color: #666;
         }
-
         @media (max-width: 600px) {
             .search-box form {
                 flex-direction: column;
                 align-items: stretch;
             }
-
             .search-box input[type="text"] {
                 max-width: 100%;
             }
-
             .search-box button {
                 width: 100%;
             }
-
             .group-selection {
                 flex-direction: column;
                 align-items: stretch;
             }
-
             .group-selection label {
                 min-width: unset;
             }
-
             table {
                 display: block;
                 overflow-x: auto;
                 white-space: nowrap;
             }
-
             th, td {
                 padding: 8px;
                 font-size: 12px;
             }
-
             .control-btn {
                 padding: 6px 10px;
                 font-size: 12px;
             }
-
             .buttons {
                 flex-direction: column;
                 gap: 10px;
             }
-
             .buttons button {
                 flex: 1 1 auto;
                 max-width: 100%;
             }
-
             .pagination a, .pagination span {
                 padding: 6px 10px;
                 font-size: 12px;
             }
-
             .pagination form input[type="number"] {
                 width: 50px;
                 padding: 5px;
                 font-size: 12px;
             }
-
             .pagination form button {
                 padding: 5px 10px;
                 font-size: 12px;
@@ -398,6 +342,7 @@
 <div class="container">
     <h1>Edit Text File</h1>
 
+    <!-- 分组选择 (edit_choose + combined_training) -->
     <div class="group-selection">
         <label>choose group(s):</label>
         <select id="editChooseSelect" name="groups" multiple="multiple"></select>
@@ -406,6 +351,7 @@
         <select id="combinedTrainingSelect" name="combined_training_groups" multiple="multiple"></select>
     </div>
 
+    <!-- 搜索框 -->
     <div class="search-box">
         <form method="GET" action="{{ url_for('edit_file.edit') }}">
             {% for sg in selected_groups %}
@@ -419,6 +365,7 @@
         </form>
     </div>
 
+    <!-- 数据表格 -->
     <div style="overflow-x: auto;">
         <table id="textTable">
             <tr>
@@ -462,10 +409,12 @@
         </table>
     </div>
 
+    <!-- 批量删除按钮 -->
     <div class="buttons">
         <button type="button" class="control-btn batch-delete-btn" id="deleteSelectedBtn">delete choose</button>
     </div>
 
+    <!-- 分页 -->
     <div class="pagination">
         {% if total_pages <= 5 %}
             {% for page in range(1, total_pages + 1) %}
@@ -536,16 +485,22 @@
         </form>
     </div>
 
-    <!-- 新增两列输入：左侧(原文)，右侧(翻译)，并添加行数显示 -->
-    <form method="POST" action="{{ url_for('edit_file.edit', page=current_page, search=search_query, groups=selected_groups, combined_training_groups=combined_training_groups) }}">
+    <!-- 新增(批量插入) -->
+    <form method="POST"
+          action="{{ url_for('edit_file.edit',
+                             page=current_page,
+                             search=search_query,
+                             groups=selected_groups,
+                             combined_training_groups=combined_training_groups) }}">
         {% for sg in selected_groups %}
         <input type="hidden" name="groups" value="{{ sg }}">
         {% endfor %}
         {% for ctg in combined_training_groups %}
         <input type="hidden" name="combined_training_groups" value="{{ ctg }}">
         {% endfor %}
+
         <div class="form-group">
-            <label for="new_line">content（support multiple lines, one line one data）:</label>
+            <label for="new_line">content (支持多行：每行当作一条):</label>
             <div style="display: flex; gap: 20px;">
                 <div style="position: relative; width: 45%;">
                     <textarea id="new_line" name="new_line" rows="5" required style="width: 100%;"></textarea>
@@ -558,17 +513,21 @@
             </div>
         </div>
         <div class="form-group">
-            <label for="new_group">新增组名（如果要创建新组，请在此输入）：</label>
-            <input type="text" id="new_group" name="new_group" placeholder="输入新组名" style="width: 95%;">
+            <label for="new_group">新增组名（若要新建组，请输入）:</label>
+            <input type="text" id="new_group" name="new_group" placeholder="输入新组名">
         </div>
         <input type="hidden" name="action" value="add">
         <div style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 10px;">
             <button type="submit" class="control-btn">add</button>
+            <!-- 下拉选择已有组（此处option.value为 group_id） -->
             <select id="new_group_select" name="existing_group" style="flex: 1 1 200px; max-width: 300px;">
                 <option value="">-- 选择现有组 --</option>
-                {% for g in group_names %}
-                <option value="{{ g }}">{{ g }}</option>
-                {% endfor %}
+                {% if group_names %}
+                  {# 如果后端传来的就是 (id, name) 列表，需要自己改 for 结构 #}
+                  {% for grp_id, grp_name in group_names %}
+                  <option value="{{ grp_id }}">{{ grp_name }}</option>
+                  {% endfor %}
+                {% endif %}
             </select>
         </div>
     </form>
@@ -578,7 +537,7 @@
     </div>
 </div>
 
-<!-- 删除确认模态框 -->
+<!-- 删除确认的模态框 -->
 <div id="deleteModal" class="modal">
     <div class="modal-content">
         <h3>确认删除</h3>
@@ -595,100 +554,111 @@
 </div>
 
 <script>
+    // 页面加载后执行
     $(document).ready(function () {
-        // 1. 获取可选group
+        // 1. 动态获取 groups 并设置 multiple-select
         fetch('/get_groups')
             .then(res => res.json())
             .then(data => {
-                const allGroups = data.groups || [];
+                const groupsData = data.groups || [];  // [{id, name}, ...]
                 const chooseSelect = document.getElementById('editChooseSelect');
                 const trainingSelect = document.getElementById('combinedTrainingSelect');
 
-                allGroups.forEach(g => {
-                    const opt1 = document.createElement('option');
-                    opt1.value = g;
-                    opt1.textContent = g;
+                // 创建下拉 option
+                groupsData.forEach(g => {
+                    let opt1 = document.createElement('option');
+                    opt1.value = g.id;  // value=group_id
+                    opt1.textContent = g.name;
                     chooseSelect.appendChild(opt1);
 
-                    const opt2 = document.createElement('option');
-                    opt2.value = g;
-                    opt2.textContent = g;
+                    let opt2 = document.createElement('option');
+                    opt2.value = g.id;
+                    opt2.textContent = g.name;
                     trainingSelect.appendChild(opt2);
                 });
 
-                // multipleSelect for editChooseSelect
+                // multipleSelect
                 $('#editChooseSelect').multipleSelect({
                     placeholder: 'choose group(s)',
                     selectAll: false,
                     onClose: function() {
-                        const selectedVals = $('#editChooseSelect').multipleSelect('getSelects');
+                        // 获取选中的value(字符串) => 转数字数组
+                        const selectedVals = $('#editChooseSelect').multipleSelect('getSelects').map(Number);
                         fetch('/set_setting_groups', {
                             method: 'POST',
                             headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({name: 'edit_choose', groups: selectedVals})
-                        })
-                            .then(res => res.json())
-                            .then(data => {
-                                if (data.status === 'success') {
-                                    const queryParams = new URLSearchParams(window.location.search);
-                                    queryParams.delete('groups');
-                                    selectedVals.forEach(g => queryParams.append('groups', g));
-                                    window.location.search = queryParams.toString();
-                                } else {
-                                    console.error('failed to update edit_choose:', data.message);
-                                }
+                            body: JSON.stringify({
+                                name: 'edit_choose',
+                                groups: selectedVals
                             })
-                            .catch(error => console.error('Error updating edit_choose:', error));
+                        })
+                        .then(r => r.json())
+                        .then(dt => {
+                            if (dt.status === 'success') {
+                                // 刷新URL
+                                const queryParams = new URLSearchParams(window.location.search);
+                                queryParams.delete('groups');
+                                selectedVals.forEach(gid => queryParams.append('groups', gid));
+                                window.location.search = queryParams.toString();
+                            } else {
+                                console.error('failed to update edit_choose:', dt.message);
+                            }
+                        })
+                        .catch(err => console.error('Error updating edit_choose:', err));
                     }
                 });
 
-                // multipleSelect for combinedTrainingSelect
                 $('#combinedTrainingSelect').multipleSelect({
                     placeholder: 'combined training group',
                     selectAll: false,
                     onClose: function() {
-                        const selectedVals = $('#combinedTrainingSelect').multipleSelect('getSelects');
+                        const selectedVals = $('#combinedTrainingSelect').multipleSelect('getSelects').map(Number);
                         fetch('/set_setting_groups', {
                             method: 'POST',
                             headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({name: 'combined_training', groups: selectedVals})
-                        })
-                            .then(res => res.json())
-                            .then(data => {
-                                if (data.status === 'success') {
-                                    const queryParams = new URLSearchParams(window.location.search);
-                                    queryParams.delete('combined_training_groups');
-                                    selectedVals.forEach(g => queryParams.append('combined_training_groups', g));
-                                    window.location.search = queryParams.toString();
-                                } else {
-                                    console.error('failed to update combined_training:', data.message);
-                                }
+                            body: JSON.stringify({
+                                name: 'combined_training',
+                                groups: selectedVals
                             })
-                            .catch(error => console.error('Error updating combined_training:', error));
+                        })
+                        .then(r => r.json())
+                        .then(dt => {
+                            if (dt.status === 'success') {
+                                const queryParams = new URLSearchParams(window.location.search);
+                                queryParams.delete('combined_training_groups');
+                                selectedVals.forEach(gid => queryParams.append('combined_training_groups', gid));
+                                window.location.search = queryParams.toString();
+                            } else {
+                                console.error('failed to update combined_training:', dt.message);
+                            }
+                        })
+                        .catch(err => console.error('Error updating combined_training:', err));
                     }
                 });
 
-                // 2. 获取已保存 name=edit_choose
+                // 再加载已保存的值
                 return fetch('/get_setting_groups?name=edit_choose');
             })
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success') {
-                    const saved = data.groups || [];
-                    $('#editChooseSelect').multipleSelect('setSelects', saved);
+                    // 这是后端返回的 group_id 列表
+                    const savedIds = data.groups || [];
+                    // multipleSelect 需要字符串 => 转换
+                    $('#editChooseSelect').multipleSelect('setSelects', savedIds.map(String));
                 }
                 return fetch('/get_setting_groups?name=combined_training');
             })
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success') {
-                    const saved = data.groups || [];
-                    $('#combinedTrainingSelect').multipleSelect('setSelects', saved);
+                    const savedIds = data.groups || [];
+                    $('#combinedTrainingSelect').multipleSelect('setSelects', savedIds.map(String));
                 }
             })
             .catch(err => console.error(err));
 
-        // 删除相关逻辑
+        // 2. 处理删除
         const modal = document.getElementById('deleteModal');
         const deleteButtons = document.querySelectorAll('.ajax-delete-btn');
         const modalLineNumbers = document.getElementById('modalLineNumbers');
@@ -698,29 +668,31 @@
         const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
         const selectAllCheckbox = document.getElementById('selectAllCheckbox');
 
-        // 删除按钮的AJAX处理
+        // 单条删除
         deleteButtons.forEach(button => {
             button.addEventListener('click', () => {
                 const rowId = button.getAttribute('data-row-id');
                 if (directDeleteCheckbox.checked) {
+                    // 直接AJAX删
                     $.ajax({
                         url: "{{ url_for('edit_file.edit') }}",
                         type: 'POST',
                         data: {
                             action: 'delete',
                             row_id: rowId,
-                            groups: {{ selected_groups | tojson }},
-                            combined_training_groups: {{ combined_training_groups | tojson }}
+                            groups: {{ selected_groups|tojson }},
+                            combined_training_groups: {{ combined_training_groups|tojson }}
                         },
                         dataType: 'text',
-                        success: function(response, textStatus, jqXHR) {
+                        success: function() {
                             $('#row-' + rowId).remove();
                         },
-                        error: function(jqXHR, textStatus, errorThrown) {
+                        error: function(_, __, errorThrown) {
                             alert('删除失败: ' + errorThrown);
                         }
                     });
                 } else {
+                    // 弹框
                     modalAction.value = 'delete';
                     modalLineNumbers.innerHTML = `<input type="hidden" name="row_id" value="${rowId}">`;
                     modalMessage.innerText = '您确定要删除这条记录吗？';
@@ -729,10 +701,12 @@
             });
         });
 
+        // 模态框提交
         document.getElementById('deleteForm').addEventListener('submit', function(e) {
             e.preventDefault();
             const action = modalAction.value;
             if (action === 'delete') {
+                // 删除单条
                 const rowId = modalLineNumbers.querySelector('input[name="row_id"]').value;
                 $.ajax({
                     url: "{{ url_for('edit_file.edit') }}",
@@ -740,61 +714,47 @@
                     data: {
                         action: 'delete',
                         row_id: rowId,
-                        groups: {{ selected_groups | tojson }},
-                        combined_training_groups: {{ combined_training_groups | tojson }}
+                        groups: {{ selected_groups|tojson }},
+                        combined_training_groups: {{ combined_training_groups|tojson }}
                     },
                     dataType: 'text',
-                    success: function(response, textStatus, jqXHR) {
+                    success: function() {
                         $('#row-' + rowId).remove();
                         closeModal();
                     },
-                    error: function(jqXHR, textStatus, errorThrown) {
+                    error: function(_, __, errorThrown) {
                         alert('删除失败: ' + errorThrown);
                     }
                 });
             } else if (action === 'delete_selected') {
-                const selectedLines = Array.from(document.querySelectorAll('#modalLineNumbers input[name="selected_lines"]')).map(input => input.value);
+                const selectedLines = Array.from(
+                    document.querySelectorAll('#modalLineNumbers input[name="selected_lines"]')
+                ).map(input => input.value);
                 $.ajax({
                     url: "{{ url_for('edit_file.edit') }}",
                     type: 'POST',
                     data: {
                         action: 'delete_selected',
                         selected_lines: selectedLines,
-                        groups: {{ selected_groups | tojson }},
-                        combined_training_groups: {{ combined_training_groups | tojson }}
+                        groups: {{ selected_groups|tojson }},
+                        combined_training_groups: {{ combined_training_groups|tojson }}
                     },
                     dataType: 'text',
                     traditional: true,
-                    success: function(response, textStatus, jqXHR) {
+                    success: function() {
                         selectedLines.forEach(id => {
                             $('#row-' + id).remove();
                         });
                         closeModal();
                     },
-                    error: function(jqXHR, textStatus, errorThrown) {
+                    error: function(_, __, errorThrown) {
                         alert('批量删除失败: ' + errorThrown);
                     }
                 });
             }
         });
 
-        function openModal() {
-            modal.style.display = 'block';
-        }
-
-        function closeModal() {
-            modal.style.display = 'none';
-            modalLineNumbers.innerHTML = '';
-            modalAction.value = '';
-            modalMessage.innerText = '确认删除吗？';
-        }
-
-        window.onclick = function (event) {
-            if (event.target == modal) {
-                closeModal();
-            }
-        };
-
+        // 批量删除
         deleteSelectedBtn.addEventListener('click', () => {
             const selectedCheckboxes = document.querySelectorAll('.select-checkbox:checked');
             const selectedCount = selectedCheckboxes.length;
@@ -813,18 +773,18 @@
                     data: {
                         action: 'delete_selected',
                         selected_lines: selectedRows,
-                        groups: {{ selected_groups | tojson }},
-                        combined_training_groups: {{ combined_training_groups | tojson }}
+                        groups: {{ selected_groups|tojson }},
+                        combined_training_groups: {{ combined_training_groups|tojson }}
                     },
                     dataType: 'text',
                     traditional: true,
-                    success: function(response, textStatus, jqXHR) {
+                    success: function() {
                         selectedRows.forEach(id => {
                             $('#row-' + id).remove();
                         });
                         closeModal();
                     },
-                    error: function(jqXHR, textStatus, errorThrown) {
+                    error: function(_, __, errorThrown) {
                         alert('批量删除失败: ' + errorThrown);
                     }
                 });
@@ -838,7 +798,7 @@
             }
         });
 
-        // 更新表单的AJAX处理
+        // 更新(行内表单)
         $('.ajax-update-form').on('submit', function(e) {
             e.preventDefault();
             const form = $(this);
@@ -854,30 +814,41 @@
                     row_id: rowId,
                     updated_text: updatedText,
                     updated_translation: updatedTranslation,
-                    groups: {{ selected_groups | tojson }},
-                    combined_training_groups: {{ combined_training_groups | tojson }}
+                    groups: {{ selected_groups|tojson }},
+                    combined_training_groups: {{ combined_training_groups|tojson }}
                 },
                 dataType: 'text',
-                success: function(response, textStatus, jqXHR) {
+                success: function() {
+                    // 更新前端显示
                     $('#row-' + rowId + ' .line-text').text(updatedText);
                     $('#row-' + rowId + ' .translation-text').text(updatedTranslation);
                 },
-                error: function(jqXHR, textStatus, errorThrown) {
+                error: function(_, __, errorThrown) {
                     alert('更新失败: ' + errorThrown);
                 }
             });
         });
 
-        // 全选复选框
+        // 全选
         selectAllCheckbox.addEventListener('change', () => {
             const checkboxes = document.querySelectorAll('.select-checkbox');
             checkboxes.forEach(cb => {
                 cb.checked = selectAllCheckbox.checked;
             });
         });
+
+        function openModal() {
+            modal.style.display = 'block';
+        }
+        function closeModal() {
+            modal.style.display = 'none';
+            modalLineNumbers.innerHTML = '';
+            modalAction.value = '';
+            modalMessage.innerText = '确认删除吗？';
+        }
     });
 
-    // 实时更新行数
+    // 实时统计多行输入行数
     const newLine = document.getElementById('new_line');
     const newLineTranslation = document.getElementById('new_line_translation');
     const newLineCounter = document.getElementById('new_line_counter');
@@ -887,16 +858,12 @@
         const lineCount = textarea.value.split(/\r\n|\r|\n/).length;
         counterElem.textContent = `${lineCount} line${lineCount > 1 ? 's' : ''}`;
     }
-
     function onInput() {
         updateLineCount(newLine, newLineCounter);
         updateLineCount(newLineTranslation, newLineTranslationCounter);
     }
-
     newLine.addEventListener('input', onInput);
     newLineTranslation.addEventListener('input', onInput);
-
-    // 初始化
     window.addEventListener('load', onInput);
 </script>
 </body>

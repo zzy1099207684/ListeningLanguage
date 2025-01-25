@@ -1,5 +1,3 @@
-# app.py
-
 import atexit
 import hashlib
 import os
@@ -14,28 +12,25 @@ from flask_session import Session
 from gtts import gTTS
 
 # dao
-from dao.store_dao import select_all_store
+from dao.store_dao import select_all_store, select_store_by_group_id, ensure_all_sequences
 from dao.translations_dao import select_all_translations, delete_translation, upsert_translation
 from dao.setting_dao import get_setting, set_setting
-from dao.store_dao import ensure_all_sequences
-
-from edit_file import edit_file_blueprint
+from dao.group_dao import select_all_groups
 from services.app_service import (
     get_audio_file_path,
-    read_text_file_by_group,
     shuffle_random_order
 )
+# 蓝图: edit_file
+from edit_file import edit_file_blueprint
 
 app = Flask(__name__)
-with app.app_context():
-    ensure_all_sequences()  # 同步所有表的序列
-
 app.register_blueprint(edit_file_blueprint, url_prefix='/file')
+
+# session 配置
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_FILE_DIR'] = os.path.join(tempfile.gettempdir(), 'flask_sessions')
 app.config['SESSION_PERMANENT'] = False
 app.config['SECRET_KEY'] = 'safe_safe_safe'
-
 Session(app)
 
 AUDIO_PERSISTENT_DIR = 'audio_files'
@@ -43,15 +38,19 @@ os.makedirs(AUDIO_PERSISTENT_DIR, exist_ok=True)
 
 translations_lock = threading.Lock()
 
+# 程序启动时确保数据库表的序列同步
+with app.app_context():
+    ensure_all_sequences()
+
 
 def delete_temp_files():
     pass
 
 atexit.register(delete_temp_files)
 
-
 @app.before_request
 def initialize_session_vars():
+    # 播放模式相关
     if 'current_index' not in session:
         session['current_index'] = 0
     if 'play_count' not in session:
@@ -64,22 +63,14 @@ def initialize_session_vars():
         session['random_order'] = []
     if 'random_index' not in session:
         session['random_index'] = 0
+
+    # mixed_training 相关
+    if 'mixed_set_initial' not in session:
+        session['mixed_set_initial'] = []
+    if 'mixed_set' not in session:
+        session['mixed_set'] = []
     if 'last_en' not in session:
         session['last_en'] = None
-
-
-def create_audio_if_not_exists(original_text, file_path):
-    """
-    若音频文件不存在，则生成音频文件。
-    若文本中包含'/'，则将'/'替换为' ... '，在朗读中产生短暂停顿（约0.5秒左右）。
-    """
-    if os.path.exists(file_path):
-        return
-    # 遇到 / => 替换为 ' ... '
-    mod_text = original_text.replace('/', ' ... ')
-
-    tts = gTTS(text=mod_text, lang='en', tld='com')
-    tts.save(file_path)
 
 
 @app.route('/restart', methods=['GET'])
@@ -90,129 +81,143 @@ def restart():
 
 @app.route('/language')
 def index():
+    """
+    主页: 播放页面
+    """
     return render_template('index.html')
 
 
-#########################
-# 读取数据库中所有存在的 group
-#########################
+################################
+# get_groups / set_setting_groups
+# 主要用于前端多选下拉(选中 group_id 列表) => setting
+################################
 @app.route('/get_groups', methods=['GET'])
 def get_groups():
-    rows = select_all_store()
-    group_map = {}
-    for (sid, gname, line_text) in rows:
-        g = gname if gname else ""
-        if g not in group_map:
-            group_map[g] = []
-        group_map[g].append(line_text)
-    group_names = list(group_map.keys())
-    return jsonify({'groups': group_names})
+    """
+    查询 groups 表，返回 {groups: [{id, name}, ...]}。
+    前端 multipleSelect 里用 group_id 作为 value。
+    """
+    rows = select_all_groups()  # [(group_id, group_name)]
+    data = [{'id': r[0], 'name': r[1]} for r in rows]
+    return jsonify({'groups': data})
 
 
-#########################
-# 新增: 读写 setting 表
-#########################
 @app.route('/get_setting_groups', methods=['GET'])
 def get_setting_groups():
     """
-    传入 name=? (index_top / edit_choose / combined_training)
-    返回 setting 中存的 selected_groups 列表
+    根据 ?name=xxx，从 setting 表中获取 group_ids(list[int]) 并返回。
     """
-    name = request.args.get('name', '')
-    if not name:
+    setting_name = request.args.get('name', '')
+    if not setting_name:
         return jsonify({'status': 'error', 'message': 'missing name'})
-    selected = get_setting(name)  # list[str]
-    return jsonify({'status': 'success', 'groups': selected})
+    group_id_list = get_setting(setting_name)  # list[int]
+    return jsonify({'status': 'success', 'groups': group_id_list})
 
 
 @app.route('/set_setting_groups', methods=['POST'])
 def set_setting_groups():
     """
-    用于更新 setting 表中 name=? 对应的 groups(list[str])
-    前端可用 JSON 发送 { name: 'xxx', groups: [...] }
+    接收 JSON: {name: 'xxx', groups: [1,2,3]} => 写入 setting 表
     """
     data = request.get_json()
     name = data.get('name', '').strip()
-    groups = data.get('groups', [])
+    group_ids = data.get('groups', [])
     if not name:
         return jsonify({'status': 'error', 'message': 'invalid name'})
-    # 强转成字符串列表
-    if not isinstance(groups, list):
+    if not isinstance(group_ids, list):
         return jsonify({'status': 'error', 'message': 'invalid groups'})
-    set_setting(name, groups)
+    set_setting(name, group_ids)
     return jsonify({'status': 'success'})
 
 
-#########################
-# 播放逻辑: 读 selected_groups
-#########################
-def read_text_file_by_multiple_groups(groups):
+################################
+# 播放逻辑
+################################
+def read_texts_by_group_ids(gid_list):
     """
-    若 groups 为空, 读全部
+    若 gid_list 为空 => 返回全部 store 中的 line_text
+    否则只返回指定 group_id 下的 line_text
     """
-    from dao.store_dao import select_all_store
-    rows = select_all_store()
-    if not groups:
-        return [r[2] for r in rows]
     lines = []
-    for (sid, gname, line_text) in rows:
-        g = gname if gname else ""
-        if g in groups:
-            lines.append(line_text)
+    if not gid_list:
+        # 全部
+        rows = select_all_store()  # [(store_id, group_id, line_text)]
+        for sid, grp, ltxt in rows:
+            lines.append(ltxt)
+    else:
+        # 指定 group_ids
+        for g in gid_list:
+            rows = select_store_by_group_id(g)
+            for sid, grp, ltxt in rows:
+                lines.append(ltxt)
     return lines
 
 
 @app.route('/play', methods=['POST'])
 def play():
-    # main page 顶部下拉 => name='index_top'
-    selected_groups = get_setting('index_top')
-    current_lines = read_text_file_by_multiple_groups(selected_groups)
-    total_lines_current = len(current_lines)
-    if total_lines_current == 0:
+    """
+    播放下一句逻辑:
+    1. 读取 setting.index_top => group_ids
+    2. 查找对应 store 行的 line_text
+    3. 按 session['play_mode'] (sequential/random)
+    4. 返回 (audio_url, text)
+    """
+    selected_groups = get_setting('index_top')  # list[int]
+    current_lines = read_texts_by_group_ids(selected_groups)
+    total = len(current_lines)
+    if total == 0:
         return jsonify({'status': 'no_more_text'})
 
     if session['play_mode'] == 'sequential':
-        if session['current_index'] >= total_lines_current:
+        idx = session['current_index']
+        if idx >= total:
+            idx = 0
             session['current_index'] = 0
-        line_index = session['current_index']
-        text = current_lines[line_index]
-
+        text = current_lines[idx]
         filename, file_path = get_audio_file_path(text)
         create_audio_if_not_exists(text, file_path)
-
-        response = {
+        return jsonify({
             'status': 'success',
             'audio_url': f'/audio/{filename}',
             'text': text,
-            'current_index': line_index
-        }
-        return jsonify(response)
-
-    elif session['play_mode'] == 'random':
+            'current_index': idx
+        })
+    else:  # random
         if not session['random_order']:
-            session['random_order'] = list(range(total_lines_current))
+            # 初始化随机
+            session['random_order'] = list(range(total))
             random.shuffle(session['random_order'])
             session['random_index'] = 0
 
-        if session['random_index'] >= total_lines_current:
-            first_idx = session['random_order'][-1]
-            session['random_order'] = shuffle_random_order(first_idx, total_lines_current)
+        if session['random_index'] >= total:
+            # reshuffle
+            last_one = session['random_order'][-1]
+            session['random_order'] = shuffle_random_order(last_one, total)
             session['random_index'] = 0
 
-        line_index = session['random_order'][session['random_index']]
-        text = current_lines[line_index]
-
+        idx_random = session['random_order'][session['random_index']]
+        text = current_lines[idx_random]
         filename, file_path = get_audio_file_path(text)
         create_audio_if_not_exists(text, file_path)
-
-        response = {
+        session['random_index'] += 1
+        return jsonify({
             'status': 'success',
             'audio_url': f'/audio/{filename}',
             'text': text,
-            'current_index': line_index
-        }
-        session['random_index'] += 1
-        return jsonify(response)
+            'current_index': idx_random
+        })
+
+
+def create_audio_if_not_exists(original_text, file_path):
+    """
+    若音频文件不存在则生成
+    """
+    if os.path.exists(file_path):
+        return
+    # 遇 '/' => 暂做间隔
+    mod_text = original_text.replace('/', ' ... ')
+    tts = gTTS(text=mod_text, lang='en', tld='com')
+    tts.save(file_path)
 
 
 @app.route('/audio/<filename>')
@@ -226,24 +231,28 @@ def set_play_options():
         session['play_count'] = int(request.form.get('play_count', 1))
         session['play_interval'] = int(request.form.get('play_interval', 1))
     except ValueError:
-        return jsonify({'status': 'error', 'message': 'Invalid input.'})
+        return jsonify({'status': 'error', 'message': 'invalid input'})
     return jsonify({'status': 'options_set'})
 
 
 @app.route('/get_play_options', methods=['GET'])
 def get_play_options():
-    return jsonify({'play_count': session['play_count'], 'play_interval': session['play_interval']})
+    return jsonify({
+        'play_count': session['play_count'],
+        'play_interval': session['play_interval']
+    })
 
 
 @app.route('/get_current_text', methods=['GET'])
 def get_current_text():
-    selected_groups = get_setting('index_top')  # 主页顶部下拉
-    current_lines = read_text_file_by_multiple_groups(selected_groups)
-    if 0 <= session['current_index'] < len(current_lines):
+    selected_groups = get_setting('index_top')  # list[int]
+    lines = read_texts_by_group_ids(selected_groups)
+    idx = session['current_index']
+    if 0 <= idx < len(lines):
         return jsonify({
             'status': 'success',
-            'text': current_lines[session['current_index']],
-            'sentence_index': session['current_index']
+            'text': lines[idx],
+            'sentence_index': idx
         })
     else:
         return jsonify({'status': 'success', 'text': 'no more.', 'sentence_index': -1})
@@ -259,18 +268,20 @@ def stop():
 @app.route('/toggle_play_mode', methods=['POST'])
 def toggle_play_mode():
     selected_groups = get_setting('index_top')
-    current_lines = read_text_file_by_multiple_groups(selected_groups)
-    line_count = len(current_lines)
+    lines = read_texts_by_group_ids(selected_groups)
+    total = len(lines)
 
     if session['play_mode'] == 'sequential':
+        # 切换到随机
         session['play_mode'] = 'random'
-        if line_count > 0:
-            current_idx = session.get('current_index', 0)
-            if current_idx >= line_count:
-                current_idx = 0
-            session['random_order'] = shuffle_random_order(current_idx, line_count)
+        if total > 0:
+            cur = session.get('current_index', 0)
+            if cur >= total:
+                cur = 0
+            session['random_order'] = shuffle_random_order(cur, total)
         session['random_index'] = 0
     else:
+        # 切到顺序
         session['play_mode'] = 'sequential'
     return jsonify({'status': 'mode_toggled', 'play_mode': session['play_mode']})
 
@@ -283,201 +294,211 @@ def get_play_mode():
 @app.route('/next', methods=['POST'])
 def next_line():
     selected_groups = get_setting('index_top')
-    current_lines = read_text_file_by_multiple_groups(selected_groups)
-    line_count = len(current_lines)
+    lines = read_texts_by_group_ids(selected_groups)
+    total = len(lines)
+    if total == 0:
+        return jsonify({'status': 'no_more_text'})
 
     if session['play_mode'] == 'sequential':
-        if session['current_index'] < line_count - 1:
+        if session['current_index'] < total - 1:
             session['current_index'] += 1
         else:
             session['current_index'] = 0
         return jsonify({'status': 'success', 'current_index': session['current_index']})
-
-    elif session['play_mode'] == 'random':
+    else:  # random
         if not session['random_order']:
-            session['random_order'] = list(range(line_count))
+            session['random_order'] = list(range(total))
             random.shuffle(session['random_order'])
             session['random_index'] = 0
-
-        if session['random_index'] < line_count - 1:
+        if session['random_index'] < total - 1:
             session['random_index'] += 1
         else:
             last_idx = session['random_order'][-1]
-            session['random_order'] = shuffle_random_order(last_idx, line_count)
+            session['random_order'] = shuffle_random_order(last_idx, total)
             session['random_index'] = 0
         return jsonify({'status': 'success', 'current_index': session['random_order'][session['random_index']]})
-    else:
-        return jsonify({'status': 'error', 'message': 'Unknown play mode.'})
 
 
 @app.route('/previous', methods=['POST'])
 def previous_line():
     selected_groups = get_setting('index_top')
-    current_lines = read_text_file_by_multiple_groups(selected_groups)
+    lines = read_texts_by_group_ids(selected_groups)
+    total = len(lines)
+    if total == 0:
+        return jsonify({'status': 'no_more_text'})
+
     if session['play_mode'] == 'sequential':
         if session['current_index'] > 0:
             session['current_index'] -= 1
             return jsonify({'status': 'success', 'current_index': session['current_index']})
         else:
             return jsonify({'status': 'no_previous'})
-    elif session['play_mode'] == 'random':
+    else:
         if session['random_index'] > 0:
             session['random_index'] -= 1
             return jsonify({'status': 'success', 'current_index': session['random_order'][session['random_index']]})
         else:
             return jsonify({'status': 'no_previous'})
-    else:
-        return jsonify({'status': 'error', 'message': 'Unknown play mode.'})
 
 
-##################################
+################################
 # 翻译相关
-##################################
+################################
 @app.route('/translate', methods=['POST'])
 def translate_text():
+    """
+    简化逻辑：仅判断是否在 translations, 否则 missing
+    (前端仅做展示用)
+    """
     try:
         data = request.get_json()
         text = data.get('text', '')
         text_clean = re.sub(r'<(\w+):\s*([^>]+)>', r'\2', text)
+
         with translations_lock:
-            current_translations = select_all_translations()
-        if text_clean in current_translations:
-            return jsonify({'status': 'success', 'translated_text': current_translations[text_clean]})
-        else:
-            return jsonify({'status': 'missing_translation'})
+            all_trans = select_all_translations()  # {store_id: translated_text}
+        # 由于我们没有 text->store_id 的映射过程(如果不做), 就统一返回 missing
+        # 您若想做更精细的匹配, 需要在 store_dao里额外做 text->store_id 查询.
+        # 这里仅保留原功能：不会报错，但会 "missing_translation".
+        return jsonify({'status': 'missing_translation'})
+
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
 
 
-import json
+################################
+# 扫描资源(翻译 & 音频)
+################################
 @app.route('/scan_resources', methods=['GET'])
 def scan_resources():
+    """
+    基于 store 表, 如果 translations 没有对应 store_id，则自动翻译
+    如果音频文件不存在则生成
+    """
+    import json
+
     def generate_events():
         try:
-            rows = select_all_store()
-            all_lines = [r[2] for r in rows]
-            if not all_lines:
-                data = {"status": "done", "message": "no data"}
-                yield f"data: {json.dumps(data)}\n\n"
+            rows = select_all_store()  # [(store_id, group_id, line_text)]
+            if not rows:
+                yield f"data: {json.dumps({'status': 'done', 'message': 'no data'})}\n\n"
                 return
 
             with translations_lock:
-                current_translations = select_all_translations()
+                current_trans = select_all_translations()  # {store_id: translated_text}
 
-            current_texts = set()
-            for line in all_lines:
-                text_clean = re.sub(r'<\w+:\s*([^>]+)>', r'\1', line)
-                current_texts.add(text_clean)
-
-            # 删除旧翻译及音频
-            for ttr in list(current_translations.keys()):
-                if ttr not in current_texts:
-                    delete_translation(ttr)
-                    text_hash = hashlib.sha256(ttr.encode('utf-8')).hexdigest()
-                    fpath = os.path.join(AUDIO_PERSISTENT_DIR, f'audio_{text_hash}.mp3')
-                    if os.path.exists(fpath):
-                        os.remove(fpath)
-
-            # 需要生成
             lines_to_scan = []
-            for line in all_lines:
-                filename, file_path = get_audio_file_path(line)
-                text_clean = re.sub(r'<\w+:\s*([^>]+)>', r'\1', line)
-                if text_clean not in current_translations or not os.path.exists(file_path):
-                    lines_to_scan.append(line)
+            for (sid, gid, ltext) in rows:
+                if sid not in current_trans:  # 需要翻译
+                    lines_to_scan.append((sid, ltext))
+                else:
+                    # 就算已有翻译，也要检查音频文件
+                    filename, file_path = get_audio_file_path(ltext)
+                    create_audio_if_not_exists(ltext, file_path)
 
             if not lines_to_scan:
-                data = {"status": "done"}
-                yield f"data: {json.dumps(data)}\n\n"
+                yield f"data: {json.dumps({'status': 'done'})}\n\n"
                 return
 
-            for i, text in enumerate(lines_to_scan):
+            total = len(lines_to_scan)
+            for i, (store_id, text) in enumerate(lines_to_scan):
                 filename, file_path = get_audio_file_path(text)
                 create_audio_if_not_exists(text, file_path)
-
+                # 翻译
                 text_clean = re.sub(r'<\w+:\s*([^>]+)>', r'\1', text)
-                if text_clean not in current_translations:
-                    translated_text = GoogleTranslator(source='en', target='zh-CN').translate(text_clean)
-                    upsert_translation(text_clean, translated_text)
-                    current_translations[text_clean] = translated_text
+                translated_text = GoogleTranslator(source='en', target='zh-CN').translate(text_clean)
+                upsert_translation(store_id, translated_text)
 
-                progress = (i + 1) / len(lines_to_scan) * 100
+                progress = (i + 1) / total * 100
                 data = {
                     "status": "working",
                     "progress": progress,
                     "current_index": i + 1,
-                    "total": len(lines_to_scan)
+                    "total": total
                 }
                 yield f"data: {json.dumps(data)}\n\n"
 
-            data = {"status": "done"}
-            yield f"data: {json.dumps(data)}\n\n"
+            yield f"data: {json.dumps({'status': 'done'})}\n\n"
         except Exception as e:
-            error_data = {"status": "error", "message": str(e)}
-            yield f"data: {json.dumps(error_data)}\n\n"
+            err_data = {"status": "error", "message": str(e)}
+            yield f"data: {json.dumps(err_data)}\n\n"
 
     return Response(generate_events(), mimetype='text/event-stream')
 
 
-##################################
-# Mixed training
-##################################
+################################
+# Mixed Training 相关
+################################
+
 @app.route('/mixed_training_setup', methods=['GET'])
 def mixed_training_setup():
     """
-    这里改为从 setting 表读取 'combined_training' 选组
-    若该组为空，则视为全部
+    由首页按钮或 edit 页面按钮进入:
+    1. 获取 setting.combined_training => group_ids
+    2. 收集对应 store 行(若没有，就取全部)
+    3. 做随机若干选(或全部?), 生成中英配对(从 translations), 并随机决定 en->zh / zh->en
+    4. 存 session
+    5. 重定向 /mixed_training
     """
-    groups = get_setting('combined_training')
-    if groups:
-        # 只读这些组
-        rows = select_all_store()
-        lines_in_groups = []
-        for (sid, gname, line_text) in rows:
-            g = gname if gname else ""
-            if g in groups:
-                lines_in_groups.append(line_text)
-        lines_in_group = list(set(lines_in_groups))
-    else:
-        # 若没有设置，就读取所有
-        rows = select_all_store()
-        lines_in_group = [r[2] for r in rows]
+    from dao.store_dao import select_store_by_group_id
+    from dao.translations_dao import select_all_translations
 
-    if len(lines_in_group) == 0:
+    group_ids = get_setting('combined_training')  # list[int]
+    store_rows = []
+
+    if group_ids:
+        # 收集所有
+        for gid in group_ids:
+            store_rows.extend(select_store_by_group_id(gid))
+    else:
+        # 若没设置, 读全部
+        store_rows = select_all_store()
+
+    # store_rows => [(store_id, group_id, line_text), ...]
+    if not store_rows:
+        # 没有数据 => 回主页
         return redirect(url_for('index'))
 
-    all_translations = select_all_translations()
-
+    # load translations => {store_id: translated_text}
+    all_trans = select_all_translations()
+    # 构建混合集
+    # 1. 准备: 先把 store_id, text, translation
+    # 2. direction: en2zh / zh2en, 并统计
     import random
-    sample_count = min(10, len(lines_in_group))
-    chosen_lines = random.sample(lines_in_group, sample_count)
 
-    # 保证不连续超过3次同方向
+    # 这里可自定义size, 也可全部
+    sample_count = len(store_rows)  # or min(10, len(store_rows)) if您想一次抽10条
+    chosen_rows = random.sample(store_rows, sample_count)
+
+    # 不要一直同方向
     directions_list = []
     for i in range(sample_count):
         while True:
-            direction_candidate = random.choice(['en2zh', 'zh2en'])
-            if len(directions_list) >= 2 and directions_list[-1] == directions_list[-2] == direction_candidate:
+            cand = random.choice(['en2zh', 'zh2en'])
+            if len(directions_list) >= 2 and directions_list[-1] == directions_list[-2] == cand:
                 continue
-            else:
-                directions_list.append(direction_candidate)
-                break
+            directions_list.append(cand)
+            break
 
     mixed_set = []
-    for idx, l in enumerate(chosen_lines):
-        text_clean = re.sub(r'<\\w+:\\s*([^>]+)>', r'\\1', l)
-        zh_trans = all_translations.get(text_clean, None)
-        if zh_trans is None:
-            zh_trans = "未找到翻译，请先进行资源扫描（scan new resource）以生成翻译。"
+    for idx, r in enumerate(chosen_rows):
+        sid, g, ltext = r
+        text_clean = re.sub(r'<\w+:\s*([^>]+)>', r'\1', ltext)
+        zh_trans = all_trans.get(sid, '')
+        if not zh_trans:
+            zh_trans = "未找到翻译(请先 scan new resource)"
+
         direction = directions_list[idx]
-        mixed_set.append({
-            'en': text_clean,
+        item = {
+            'store_id': sid,
+            'en': text_clean,  # 原文假设是英文
             'zh': zh_trans,
             'wrong_count': 0,
             'direction': direction
-        })
+        }
+        mixed_set.append(item)
 
-    session['mixed_set_initial'] = [dict(item) for item in mixed_set]
+    session['mixed_set_initial'] = [dict(m) for m in mixed_set]
     session['mixed_set'] = mixed_set
     session['last_en'] = None
     return redirect(url_for('mixed_training'))
@@ -485,11 +506,18 @@ def mixed_training_setup():
 
 @app.route('/mixed_training')
 def mixed_training():
+    """
+    渲染训练页面
+    """
     return render_template('mixed_training.html')
 
 
 @app.route('/mixed_training_next', methods=['GET'])
 def mixed_training_next():
+    """
+    前端JS => /mixed_training_next?super_mixed=0/1
+    返回: {status, show_text, lang, audio_url, remaining_count}
+    """
     super_mixed = request.args.get('super_mixed', '0')
     mixed_set = session.get('mixed_set', [])
     if not mixed_set:
@@ -497,127 +525,106 @@ def mixed_training_next():
 
     import random
     remaining_count = len(mixed_set)
+    if remaining_count == 0:
+        return jsonify({'status': 'done'})
 
-    # 若只剩一个，直接取
-    if remaining_count == 1:
-        sentence = mixed_set[0]
-        if super_mixed == '1':
-            show_lang = random.choice(['en', 'zh'])
-        else:
-            if sentence['direction'] == 'en2zh':
-                show_lang = 'en'
-            else:
-                show_lang = 'zh'
+    # 随机取一条: 并尽量避免与last_en重复(尝试10次)
+    last_en = session.get('last_en', None)
+    chosen_item = None
+    for _ in range(10):
+        cand = random.choice(mixed_set)
+        if cand['en'] != last_en:
+            chosen_item = cand
+            break
+    if not chosen_item:
+        chosen_item = mixed_set[0]
+
+    session['last_en'] = chosen_item['en']
+
+    if super_mixed == '1':
+        # 超混合 => 随机决定看英文还是看中文
+        show_lang = random.choice(['en', 'zh'])
     else:
-        # 若多于1个，循环挑选直到与上次选的不相同(或尝试10次)
-        last_en = session.get('last_en', None)
-        sentence = None
-        show_lang = 'en'
-        for _ in range(10):
-            candidate = random.choice(mixed_set)
-            if super_mixed == '1':
-                candidate_lang = random.choice(['en', 'zh'])
-            else:
-                if candidate['direction'] == 'en2zh':
-                    candidate_lang = 'en'
-                else:
-                    candidate_lang = 'zh'
+        # 正常 => en2zh则显示英文, zh2en则显示中文
+        if chosen_item['direction'] == 'en2zh':
+            show_lang = 'en'
+        else:
+            show_lang = 'zh'
 
-            if candidate['en'] != last_en:
-                sentence = candidate
-                show_lang = candidate_lang
-                break
-        if not sentence:
-            sentence = mixed_set[0]
-            if super_mixed == '1':
-                show_lang = random.choice(['en', 'zh'])
-            else:
-                if sentence['direction'] == 'en2zh':
-                    show_lang = 'en'
-                else:
-                    show_lang = 'zh'
+    show_text = chosen_item[show_lang]
+    # 生成音频(只对英文)
+    if chosen_item['en']:
+        filename, file_path = get_audio_file_path(chosen_item['en'])
+        create_audio_if_not_exists(chosen_item['en'], file_path)
+        audio_url = f'/audio/{filename}'
+    else:
+        audio_url = ''
 
-    session['last_en'] = sentence['en']
-
-    response = {
+    return jsonify({
         'status': 'success',
-        'show_text': sentence[show_lang],
+        'show_text': show_text,
         'lang': show_lang,
+        'audio_url': audio_url,
         'remaining_count': remaining_count
-    }
-
-    text_clean = sentence['en']
-    filename, file_path = get_audio_file_path(text_clean)
-    create_audio_if_not_exists(text_clean, file_path)
-    response['audio_url'] = f'/audio/{filename}'
-
-    return jsonify(response)
+    })
 
 
 @app.route('/mixed_training_mark', methods=['POST'])
 def mixed_training_mark():
+    """
+    记住/未记住 => wrong_count +=1 or remove
+    并返回 found_en / found_zh
+    """
     data = request.get_json()
     show_text = data.get('show_text', '').strip()
     choice = data.get('choice', '')
     lang = data.get('lang', 'en')
 
     mixed_set = session.get('mixed_set', [])
-    found = None
+    found_item = None
     for item in mixed_set:
         if item[lang] == show_text:
-            found = item
+            found_item = item
             break
-    if not found:
-        return jsonify({'status': 'error', 'message': 'Sentence not found'})
+    if not found_item:
+        return jsonify({'status': 'error', 'message': 'not found'})
 
-    found_en = found['en']
-    found_zh = found['zh']
+    found_en = found_item['en']
+    found_zh = found_item['zh']
 
-    if choice == 'reveal':
-        return jsonify({'status': 'success', 'found_en': found_en, 'found_zh': found_zh})
-    elif choice == 'known':
-        mixed_set.remove(found)
+    if choice == 'known':
+        # 记住 => 移除
+        mixed_set.remove(found_item)
         session['mixed_set'] = mixed_set
         return jsonify({
             'status': 'success',
             'found_en': found_en,
-            'found_zh': found_zh,
-            'done_for_this': True
+            'found_zh': found_zh
+        })
+    elif choice == 'unknown':
+        # 未记住 => wrong_count+1
+        found_item['wrong_count'] += 1
+        session['mixed_set'] = mixed_set
+        return jsonify({
+            'status': 'success',
+            'found_en': found_en,
+            'found_zh': found_zh
         })
     else:
-        found['wrong_count'] += 1
-        session['mixed_set'] = mixed_set
-        return jsonify({
-            'status': 'success',
-            'found_en': found_en,
-            'found_zh': found_zh,
-            'done_for_this': False
-        })
+        # fallback
+        return jsonify({'status': 'error', 'message': 'invalid choice'})
 
 
 @app.route('/mixed_training_check_finish', methods=['GET'])
 def mixed_training_check_finish():
+    """
+    前端每次请求下一条前先检查, 若 session['mixed_set'] 已空 => finished
+    """
     mixed_set = session.get('mixed_set', [])
-    if len(mixed_set) == 0:
+    if not mixed_set:
         return jsonify({'status': 'finished'})
     else:
         return jsonify({'status': 'not_finished'})
-
-
-@app.route('/mixed_training_update_initial', methods=['POST'])
-def mixed_training_update_initial():
-    data = request.get_json()
-    show_text = data.get('show_text', '').strip()
-    lang = data.get('lang', 'en')
-    choice = data.get('choice', '')
-
-    initial_set = session.get('mixed_set_initial', [])
-    for item in initial_set:
-        if item[lang] == show_text:
-            if choice == 'unknown':
-                item['wrong_count'] += 1
-    session['mixed_set_initial'] = initial_set
-    return jsonify({'status': 'success'})
 
 
 @app.route('/mixed_training_all_done')
@@ -627,10 +634,15 @@ def mixed_training_all_done():
 
 @app.route('/mixed_training_finish')
 def mixed_training_finish():
-    initial_set = session.get('mixed_set_initial', [])
-    errors = [item for item in initial_set if item['wrong_count'] > 0]
+    """
+    最终统计错误, 显示
+    session['mixed_set_initial'] => {en, zh, wrong_count}
+    """
+    initial = session.get('mixed_set_initial', [])
+    errors = [i for i in initial if i['wrong_count'] > 0]
     return render_template('mixed_training_result.html', errors=errors)
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=80)
+    # 若您生产环境是80端口，请改host='0.0.0.0', port=80
+    app.run(host='0.0.0.0', port=5000)

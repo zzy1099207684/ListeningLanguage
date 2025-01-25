@@ -6,10 +6,9 @@ from collections import defaultdict
 from dao.store_dao import (
     select_all_store,
     insert_store,
-    delete_store_by_text,
     delete_store_by_id,
-    update_store_by_text,
-    update_store_line_text_by_id
+    update_store_by_id,
+    select_store_by_id
 )
 from dao.translations_dao import (
     select_all_translations,
@@ -20,6 +19,10 @@ from dao.setting_dao import (
     select_setting_by_name,
     upsert_setting
 )
+from dao.group_dao import (
+    get_or_create_group_id,
+    select_all_groups
+)
 
 AUDIO_PERSISTENT_DIR = 'audio_files'
 
@@ -28,96 +31,71 @@ def load_translations():
     return select_all_translations()
 
 
-def save_translations(original_text, translated_text):
-    upsert_translation(original_text, translated_text)
+def save_translations(store_id, translated_text):
+    """
+    对指定 store_id 进行翻译插入/更新
+    """
+    upsert_translation(store_id, translated_text)
 
 
 def read_all_store():
     """
-    查询 store 表全部行: [(id, group_name, line_text), ...]
+    查询 store 表全部行: [(store_id, group_id, line_text), ...]
     """
     return select_all_store()
 
 
-def insert_new_lines(new_lines, group_name='', new_group=None):
+def insert_new_lines(new_lines, new_trans_lines, group_id):
     """
-    新增插入时，带上指定的 group_name 或 new_group。
-    如果 new_group 存在，优先使用它作为 group_name。
+    将若干行文本插入 store，并为每行文本写入对应翻译（若有）。
+    new_lines 和 new_trans_lines 索引一一对应。
     """
-    if new_group:
-        group_name = new_group.strip()
-    for nl in new_lines:
-        insert_store(group_name, nl)
-    if group_name:
-        # 更新对应的 setting 表
-        if new_group:
-            update_setting_selected_groups('edit_choose', group_name)
-        # 如果需要将新组也添加到 combined_training，可以在此处处理
-        # 例如，假设有一个checkbox决定是否将新组添加到 combined_training
-        # 这里假设不自动添加到 combined_training
-        # 若有需求，可根据具体情况修改
-        # For example:
-        # if add_to_combined_training:
-        #     update_setting_selected_groups('combined_training', group_name)
-        pass
+    for i, nl in enumerate(new_lines):
+        store_id = insert_store(group_id, nl)
+        if i < len(new_trans_lines):
+            save_translations(store_id, new_trans_lines[i])
 
 
-def remove_line_by_text(text):
+def remove_line_by_id(store_id):
     """
-    通过文本删除行。
-    如果删除后某个分组没有任何数据，更新 setting 表以移除该分组。
+    通过 store_id 删除行。
     同时删除对应的翻译和音频文件。
+    删除后可能要更新 setting 表以移除空分组(如果该分组无任何数据)。
     """
-    delete_audio_file(text)
-    delete_translation(text)
-    delete_store_by_text(text)
+    row = select_store_by_id(store_id)
+    if not row:
+        return
+    _, _, old_text = row  # (store_id, group_id, line_text)
+
+    delete_audio_file(old_text)
+    delete_translation(store_id)
+    delete_store_by_id(store_id)
+
     # 更新 setting 表
     update_settings_after_deletion()
 
 
-def remove_line_by_id(row_id):
+def update_line_text_by_id(store_id, new_text, new_trans):
     """
-    通过 ID 删除行。
-    如果删除后某个分组没有任何数据，更新 setting 表以移除该分组。
-    同时删除对应的翻译和音频文件。
-    """
-    old_text = get_line_text_by_id(row_id)
-    if old_text:
-        delete_audio_file(old_text)
-        delete_translation(old_text)
-        delete_store_by_id(row_id)
-        # 更新 setting 表
-        update_settings_after_deletion()
-
-
-def update_line_text(old_text, new_text, new_trans):
-    """
-    通过文本更新行，只更新首个匹配到的行。
+    通过 store_id 更新行文本。
     同时更新翻译和音频文件。
     """
-    update_store_by_text(old_text, new_text)
+    row = select_store_by_id(store_id)
+    if not row:
+        return
+    _, _, old_text = row
+
+    # 更新 store
+    update_store_by_id(store_id, new_text)
+
+    # 删旧音频 & 旧翻译
     delete_audio_file(old_text)
-    delete_translation(old_text)
-    save_translations(new_text, new_trans)
-    # 如果分组发生变化，可能需要更新 setting 表
-    update_settings_after_deletion()
+    delete_translation(store_id)
 
+    # 存新翻译
+    save_translations(store_id, new_trans)
 
-def update_line_text_by_id(row_id, new_text, new_trans):
-    """
-    通过 ID 更新行。
-    同时更新翻译和音频文件。
-    """
-    old_text = get_line_text_by_id(row_id)
-    if old_text:
-        update_store_by_text(old_text, new_text)
-        delete_audio_file(old_text)
-        delete_translation(old_text)
-    else:
-        # 如果没有找到旧文本，直接更新
-        update_store_line_text_by_id(row_id, new_text)
-    save_translations(new_text, new_trans)
-    # 更新 setting 表以反映可能的分组变化
+    # 更新 setting 表
     update_settings_after_deletion()
 
 
@@ -132,63 +110,63 @@ def delete_audio_file(text):
         os.remove(file_path)
 
 
-def get_line_text_by_id(row_id):
+def get_line_text_by_id(store_id):
     """
-    获取指定 ID 的 line_text。
+    获取指定 store_id 的 line_text。
     """
-    from dao.db_connection import get_db_connection
-    with get_db_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT line_text FROM store WHERE id = %s LIMIT 1", (row_id,))
-            row = cur.fetchone()
-    return row[0] if row else None
+    row = select_store_by_id(store_id)
+    if row:
+        return row[2]
+    return None
 
 
 def update_settings_after_deletion():
     """
-    更新 setting 表中的 selected_groups。
-    如果某个分组在 store 表中已无数据，则从 selected_groups 中移除该分组。
-    如果 store 表中无任何数据，则清空 selected_groups。
+    更新 setting 表中的 group_ids：
+    如果某个 group_id 在 store 表中已无数据，则从所有 setting 中移除该 group_id。
+    如果 store 表中无任何数据，则清空所有 setting 的 group_ids。
     """
-    # 获取 store 表中所有剩余的分组
-    remaining_groups = get_all_remaining_groups()
+    remaining_group_ids = get_all_remaining_group_ids()
 
-    # 获取当前 setting 表中的 selected_groups
-    edit_choose_groups = select_setting_by_name('edit_choose')  # 'edit_choose' 用于 "choose group(s)"
-    combined_training_groups = select_setting_by_name('combined_training')  # 'combined_training' 用于 "combined training group"
-
-    # 过滤掉已无数据的分组
-    updated_edit_choose = [g for g in edit_choose_groups if g in remaining_groups]
-    updated_combined_training = [g for g in combined_training_groups if g in remaining_groups]
-
-    # 如果没有任何分组剩余，清空 selected_groups
-    if not remaining_groups:
-        updated_edit_choose = []
-        updated_combined_training = []
-
-    # 更新 setting 表
-    upsert_setting('edit_choose', updated_edit_choose)
-    upsert_setting('combined_training', updated_combined_training)
+    # 遍历需要维护的 setting_name 列表，比如 ['edit_choose', 'combined_training']，也可能有别的
+    for setting_name in ['edit_choose', 'combined_training', 'index_top']:
+        group_ids = select_setting_by_name(setting_name)  # list of int
+        if group_ids:
+            updated_list = [gid for gid in group_ids if gid in remaining_group_ids]
+            # 如果 store 已空，则 updated_list 为空
+            upsert_setting(setting_name, updated_list)
 
 
-def get_all_remaining_groups():
+def get_all_remaining_group_ids():
     """
-    获取 store 表中所有存在的分组。
+    获取 store 表中所有存在的 group_id（去重）。
     """
     store_rows = read_all_store()
-    group_set = set()
-    for row in store_rows:
-        group_name = row[1] if row[1] else ""
-        if group_name:
-            group_set.add(group_name)
-    return list(group_set)
+    return list({row[1] for row in store_rows if row})
 
 
-def update_setting_selected_groups(setting_name, new_group):
+def update_setting_with_group_id(setting_name, group_id):
     """
-    将新的组名添加到指定的 setting 表的 selected_groups 中（如果尚未存在）。
+    将新的 group_id 添加到指定的 setting 表的 group_ids 中（如果尚未存在）。
     """
-    selected_groups = select_setting_by_name(setting_name)
-    if new_group and new_group not in selected_groups:
-        selected_groups.append(new_group)
-        upsert_setting(setting_name, selected_groups)
+    group_ids = select_setting_by_name(setting_name)
+    if group_id not in group_ids:
+        group_ids.append(group_id)
+        upsert_setting(setting_name, group_ids)
+
+
+def get_or_create_group_id_by_name(gname: str):
+    """
+    封装从 group_name -> group_id 的逻辑。
+    group_name 若不存在则创建。
+    """
+    if not gname.strip():
+        return None
+    return get_or_create_group_id(gname)
+
+
+def get_all_groups():
+    """
+    返回 [(group_id, group_name), ...]
+    """
+    return select_all_groups()

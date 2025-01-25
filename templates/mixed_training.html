@@ -1,5 +1,3 @@
-<!--mixed_training.html-->
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -10,7 +8,6 @@
       body {
           display: flex;
           flex-direction: column;
-          justify-content: flex-start;
           align-items: center;
           min-height: 100vh;
           font-family: 'Arial', sans-serif;
@@ -19,7 +16,6 @@
           background-color: #fafafa;
           color: #333;
           text-align: center;
-          position: relative;
       }
       h1 {
           font-size: 24px;
@@ -102,6 +98,7 @@
           padding: 10px;
           border-radius: 8px;
           white-space: pre-line;
+          max-width: 90%;
       }
       #speaker-btn {
           font-size: 24px;
@@ -119,7 +116,7 @@
   <div id="listen-mode-container">
       <label>
           <input type="checkbox" id="listen-mode-checkbox">
-          listing
+          listen mode
       </label>
       <label>
           <input type="checkbox" id="super-mixed-checkbox">
@@ -133,7 +130,6 @@
   <div class="controls">
       <button class="control-btn" id="remember-btn">remembered</button>
       <button class="control-btn" id="forget-btn">unremembered</button>
-<!--      <button class="control-btn" id="reveal-btn">reveal</button>-->
       <button class="control-btn" id="next-btn" style="display:none;">next</button>
   </div>
   <div class="controls">
@@ -144,9 +140,24 @@
       let currentShowText = '';
       let currentLang = '';
       let currentAudioUrl = '';
+      let currentAudio = null;
       let phase = 'question';
 
-      let currentAudio = null;
+      const listenModeCheckbox = document.getElementById('listen-mode-checkbox');
+      const superMixedCheckbox = document.getElementById('super-mixed-checkbox');
+      const questionBox = document.getElementById('question-box');
+      const otherTextBox = document.getElementById('other-text-box');
+      const rememberBtn = document.getElementById('remember-btn');
+      const forgetBtn = document.getElementById('forget-btn');
+      const nextBtn = document.getElementById('next-btn');
+      const returnMainBtn = document.getElementById('return-main-btn');
+      const remainingCountEl = document.getElementById('remaining-count');
+
+      returnMainBtn.onclick = () => {
+          stopAudio();
+          window.location.href = '/language';
+      };
+
       function stopAudio() {
           if (currentAudio) {
               currentAudio.pause();
@@ -162,26 +173,19 @@
           }
       }
 
-      const listenModeCheckbox = document.getElementById('listen-mode-checkbox');
-      const superMixedCheckbox = document.getElementById('super-mixed-checkbox');
-      const questionBox = document.getElementById('question-box');
-      const otherTextBox = document.getElementById('other-text-box');
-      const rememberBtn = document.getElementById('remember-btn');
-      const forgetBtn = document.getElementById('forget-btn');
-      const nextBtn = document.getElementById('next-btn');
-      // const revealBtn = document.getElementById('reveal-btn');
-
+      // 加载下一条
       function loadNextSentence() {
-          const superMixedParam = superMixedCheckbox.checked ? '1' : '0';
+          // 检查是否完成
           fetch('/mixed_training_check_finish')
-          .then(res => res.json())
-          .then(data => {
-              if (data.status === 'finished') {
+          .then(r => r.json())
+          .then(dt => {
+              if (dt.status === 'finished') {
                   window.location.href = '/mixed_training_all_done';
                   return;
               } else {
-                  fetch('/mixed_training_next?super_mixed=' + superMixedParam)
-                  .then(res => res.json())
+                  const superMixed = superMixedCheckbox.checked ? '1' : '0';
+                  fetch('/mixed_training_next?super_mixed=' + superMixed)
+                  .then(r2 => r2.json())
                   .then(data => {
                       if (data.status === 'done') {
                           window.location.href = '/mixed_training_all_done';
@@ -193,105 +197,69 @@
                           phase = 'question';
                           rememberBtn.style.display = 'inline-block';
                           forgetBtn.style.display = 'inline-block';
-                          // revealBtn.style.display = 'inline-block';
                           nextBtn.style.display = 'none';
-                          document.getElementById('remaining-count').innerText = 'remaining quantity: ' + data.remaining_count;
-
+                          remainingCountEl.textContent = 'remaining quantity: ' + data.remaining_count;
                           updateQuestionDisplay();
-
                           if (currentLang === 'en') {
+                              // 若是英文默认播放一次
                               playAudio();
                           }
                       }
-                  })
+                  });
               }
-          })
+          });
       }
 
       function updateQuestionDisplay() {
           questionBox.innerText = currentShowText;
-
-          // 如果是英文且未选中listen模式，则显示小喇叭
-          if (currentLang === 'en' && !listenModeCheckbox.checked && currentAudioUrl) {
-              questionBox.innerHTML = currentShowText + '<span id="small-speaker-btn">🔊</span>';
-              const smallSpeakerBtn = document.getElementById('small-speaker-btn');
-              smallSpeakerBtn.onclick = () => {
-                  stopAudio();
-                  currentAudio = new Audio(currentAudioUrl);
-                  currentAudio.play();
-              };
-          }
-          // 如果是英文且选中listen模式，则大喇叭
-          else if (currentLang === 'en' && listenModeCheckbox.checked && currentAudioUrl) {
-              questionBox.innerHTML = '<span id="speaker-btn">🔊</span>';
-              const speakerBtn = document.getElementById('speaker-btn');
-              speakerBtn.onclick = () => {
-                  stopAudio();
-                  currentAudio = new Audio(currentAudioUrl);
-                  currentAudio.play();
-              };
+          if (currentLang === 'en') {
+              if (!listenModeCheckbox.checked) {
+                  // 显示小喇叭
+                  questionBox.innerHTML = currentShowText + '<span id="small-speaker-btn"> 🔊</span>';
+                  const smallSpk = document.getElementById('small-speaker-btn');
+                  smallSpk.onclick = () => {
+                      stopAudio();
+                      playAudio();
+                  };
+              } else {
+                  // 只显示一个喇叭
+                  questionBox.innerHTML = '<span id="speaker-btn">🔊</span>';
+                  const spk = document.getElementById('speaker-btn');
+                  spk.onclick = () => {
+                      stopAudio();
+                      playAudio();
+                  };
+              }
           }
       }
 
-      // 统一调用 /mixed_training_mark 显示中英并播放英文音频
+      // 记住 / 未记住
       function markChoice(choice) {
           fetch('/mixed_training_mark', {
               method: 'POST',
               headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({show_text: currentShowText, choice: choice, lang: currentLang})
+              body: JSON.stringify({
+                  show_text: currentShowText,
+                  choice: choice,
+                  lang: currentLang
+              })
           })
-          .then(res => res.json())
-          .then(data => {
-              if (data.status === 'success') {
-                  // 显示: 英文和中文(无前缀)
-                  const enText = data.found_en || '';
-                  const zhText = data.found_zh || '';
-                  otherTextBox.innerHTML = enText + "\n" + zhText;
-
-                  // 隐藏 记忆/未记住/揭示, 显示下一步
+          .then(r => r.json())
+          .then(dt => {
+              if (dt.status === 'success') {
+                  // 显示中文等
+                  const enText = dt.found_en || '';
+                  const zhText = dt.found_zh || '';
+                  otherTextBox.innerText = enText + '\n' + zhText;
                   rememberBtn.style.display = 'none';
                   forgetBtn.style.display = 'none';
-                  // revealBtn.style.display = 'none';
                   nextBtn.style.display = 'inline-block';
                   phase = 'answer';
-
-                  // 无论原先是看中还是看英, 此时都应读出英文音频
+                  // 无论什么语言，都会播一次英语
                   playAudio();
               }
           })
-      }
-
-      // revealBtn.onclick = () => {
-      //     stopAudio();
-      //     if (phase === 'question') {
-      //         markChoice('reveal');
-      //     }
-      // };
-
-      rememberBtn.onclick = () => {
-          stopAudio();
-          if (phase === 'question') {
-              markChoice('known');
-          }
-      }
-
-      forgetBtn.onclick = () => {
-          stopAudio();
-          if (phase === 'question') {
-              markChoice('unknown');
-          }
-      }
-
-      nextBtn.onclick = () => {
-          stopAudio();
-          if (phase === 'answer') {
-              loadNextSentence();
-          }
-      }
-
-      document.getElementById('return-main-btn').onclick = () => {
-          stopAudio();
-          window.location.href = '/language';
+          .catch(err => console.error(err));
       }
 
       listenModeCheckbox.onchange = () => {
@@ -301,6 +269,26 @@
           }
       };
 
+      rememberBtn.onclick = () => {
+          stopAudio();
+          if (phase === 'question') {
+              markChoice('known');
+          }
+      };
+      forgetBtn.onclick = () => {
+          stopAudio();
+          if (phase === 'question') {
+              markChoice('unknown');
+          }
+      };
+      nextBtn.onclick = () => {
+          stopAudio();
+          if (phase === 'answer') {
+              loadNextSentence();
+          }
+      };
+
+      // 页面加载
       window.onload = loadNextSentence;
   </script>
 </body>

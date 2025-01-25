@@ -1,5 +1,3 @@
-<!--index.html-->
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11,8 +9,6 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/multiple-select@1.5.2/dist/multiple-select.min.css">
   <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/multiple-select@1.5.2/dist/multiple-select.min.js"></script>
-
-
 
   <style>
     body {
@@ -172,7 +168,6 @@
         cursor: pointer;
         transition: color 0.3s;
         position: relative;
-
     }
     .highlight.red {
         color: #FF0000;
@@ -205,10 +200,9 @@
 <body>
   <h1>Reading</h1>
 
-  <!-- 多选下拉,无需OK按钮,一旦选中就写入setting表并刷新页面 -->
+  <!-- 多选下拉,一旦选中存到 setting.index_top -->
   <div id="groupSelectorContainer" style="margin-top:10px;">
-      <select id="groupSelector" multiple="multiple">
-      </select>
+      <select id="groupSelector" multiple="multiple"></select>
   </div>
 
   <div id="text-container">
@@ -268,43 +262,40 @@
     let translatedText = document.getElementById('translated-text');
     let currentText = document.getElementById('current-text');
     let wordTooltip = document.getElementById('word-tooltip');
-
     let toggleEnglish = document.getElementById('toggleEnglish');
     let toggleTranslation = document.getElementById('toggleTranslation');
-
     const groupSelector = document.getElementById('groupSelector');
 
-    // 1. 获取所有可选组
+    // 加载全部分组 => multipleSelect
     fetch('/get_groups')
     .then(res => res.json())
     .then(data => {
-      const allGroups = data.groups || [];
+      const allGroups = data.groups || [];  // [{id, name}, ...]
       allGroups.forEach(g => {
         const opt = document.createElement('option');
-        opt.value = g;
-        opt.textContent = g;
+        opt.value = g.id;
+        opt.textContent = g.name;
         groupSelector.appendChild(opt);
       });
-      // 启用 multipleSelect
       $('#groupSelector').multipleSelect({
         placeholder: 'choose group(s)',
         selectAll: false
       });
-      // 2. 获取已保存的选组 name=index_top
+      // 加载已保存的 index_top
       return fetch('/get_setting_groups?name=index_top');
     })
     .then(res => res.json())
     .then(data => {
       if(data.status === 'success'){
         const saved = data.groups || [];
-        $('#groupSelector').multipleSelect('setSelects', saved);
+        $('#groupSelector').multipleSelect('setSelects', saved.map(String));
       }
     })
     .catch(err => console.error(err));
 
-    // 3. 一旦下拉选项变动 => 立即写入setting表 + 刷新页面
+    // 下拉改变 => 更新 setting.index_top
     $('#groupSelector').on('change', function(){
-      const selectedVals = $('#groupSelector').multipleSelect('getSelects');
+      const selectedVals = $('#groupSelector').multipleSelect('getSelects').map(Number);
       fetch('/set_setting_groups', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -319,22 +310,21 @@
       .catch(error => console.error('Error updating index_top:', error));
     });
 
-    // 以下播放相关逻辑保持不变
+    // 获取并显示当前播放模式
     fetch('/get_play_mode')
       .then(response => response.json())
       .then(data => {
           if (data.play_mode === 'sequential') {
               toggleModeBtn.textContent = 'sequential';
               enableNavigationButtons();
-          } else if (data.play_mode === 'random') {
+          } else {
               toggleModeBtn.textContent = 'random';
               disableNavigationButtons();
           }
       })
-      .catch(error => {
-          console.error('Error fetching play mode:', error);
-      });
+      .catch(error => console.error('Error fetching play mode:', error));
 
+    // 获取播放次数/间隔
     fetch('/get_play_options')
       .then(response => response.json())
       .then(data => {
@@ -347,10 +337,9 @@
               playIntervalBtn.textContent = data.play_interval;
           }
       })
-      .catch(error => {
-          console.error('Error fetching play options:', error);
-      });
+      .catch(error => console.error('Error fetching play options:', error));
 
+    // 显示/隐藏文本/翻译
     toggleEnglish.addEventListener('change', function () {
         currentText.style.display = this.checked ? 'block' : 'none';
     });
@@ -358,102 +347,29 @@
         translatedText.style.display = this.checked ? 'block' : 'none';
     });
 
-    function updateText(text, sentenceIndex) {
-        currentText.innerHTML = '';
-        const regex = /<(\w+):\s*([^>]+)>/g;
-        let lastIndex = 0;
-        let match;
-        while ((match = regex.exec(text)) !== null) {
-            const [fullMatch, color, content] = match;
-            const start = match.index;
-            const end = regex.lastIndex;
-            if (start > lastIndex) {
-                const plain_text_segment = text.substring(lastIndex, start).trim();
-                const words = plain_text_segment.split(/\s+/);
-                words.forEach(word => {
-                    if (word) {
-                        const span = document.createElement('span');
-                        span.classList.add('highlight');
-                        span.textContent = word;
-                        currentText.appendChild(span);
-                        currentText.appendChild(document.createTextNode(' '));
-                    }
-                });
-            }
-            const coloredWords = content.split(/\s+/);
-            coloredWords.forEach(word => {
-                if (word) {
-                    const span = document.createElement('span');
-                    span.classList.add('highlight', color.toLowerCase());
-                    span.textContent = word;
-                    currentText.appendChild(span);
-                    currentText.appendChild(document.createTextNode(' '));
-                }
-            });
-            lastIndex = end;
-        }
-        if (lastIndex < text.length) {
-            const remaining_text = text.substring(lastIndex).trim();
-            const words = remaining_text.split(/\s+/);
-            words.forEach(word => {
-                if (word) {
-                    const span = document.createElement('span');
-                    span.classList.add('highlight');
-                    span.textContent = word;
-                    currentText.appendChild(span);
-                    currentText.appendChild(document.createTextNode(' '));
-                }
-            });
-        }
-        translateText(text);
-        addWordClickEvents();
-    }
-
-    function translateText(text) {
-        fetch('/translate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({text: text})
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                translatedText.innerText = data.translated_text;
-            } else if (data.status === 'missing_translation') {
-                translatedText.innerText = 'The current text has no translation, please click the "scan new resource" button to generate translation resources.';
-            } else {
-                translatedText.innerText = 'translate error。';
-            }
-        })
-        .catch(error => {
-            console.error('Error during translation:', error);
-            translatedText.innerText = 'translate error。';
-        });
-    }
-
+    // 播放相关
     function togglePlayPause() {
-        const playPauseBtn = document.getElementById('playPauseBtn');
-        disableButton(playPauseBtn, 200);
+        const btn = document.getElementById('playPauseBtn');
+        disableButton(btn, 200);
         if (!isPlaying) {
             isPlaying = true;
-            playPauseBtn.textContent = '⏸';
+            btn.textContent = '⏸';
             playNext();
         } else {
             isPlaying = false;
             audioPlayer.pause();
-            playPauseBtn.textContent = '▶️';
+            btn.textContent = '▶️';
         }
     }
-
     function playNext() {
         if (!isPlaying) return;
         fetch('/play', {method: 'POST'})
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                const audioUrl = data.audio_url;
-                const text = data.text;
-                const sentenceIndex = data.current_index;
+        .then(r => r.json())
+        .then(dt => {
+            if (dt.status === 'success') {
+                const audioUrl = dt.audio_url;
+                const text = dt.text;
+                const sentenceIndex = dt.current_index;
                 updateText(text, sentenceIndex);
                 currentPlay = 0;
                 function playLoop() {
@@ -467,67 +383,54 @@
                             setTimeout(playLoop, playInterval);
                         } else {
                             currentPlay = 0;
-                            setTimeout(() => {
-                                moveToNextLine();
-                            }, playInterval);
+                            setTimeout(moveToNextLine, playInterval);
                         }
                     };
                 }
                 playLoop();
-            } else if (data.status === 'no_more_text') {
-                alert('no much more。');
+            } else if (dt.status === 'no_more_text') {
+                alert('no more data。');
                 isPlaying = false;
                 document.getElementById('playPauseBtn').textContent = '▶️';
             }
         })
-        .catch(error => {
-            console.error('Error during playNext:', error);
-        });
+        .catch(err => console.error('Error during playNext:', err));
     }
-
     function moveToNextLine() {
         fetch('/next', {method: 'POST'})
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
+        .then(r => r.json())
+        .then(dt => {
+            if (dt.status === 'success') {
                 if (isPlaying) {
                     playNext();
                 }
-            } else if (data.status === 'no_more_text') {
-                alert('no much more。');
+            } else {
+                alert('no more data。');
                 isPlaying = false;
                 document.getElementById('playPauseBtn').textContent = '▶️';
             }
         })
-        .catch(error => {
-            console.error('Error during moveToNextLine:', error);
-        });
+        .catch(err => console.error('Error nextLine:', err));
     }
-
-    function setPlayOptions(playCountValue, playIntervalValue) {
+    function setPlayOptions(count, intervalSec) {
         fetch('/set_play_options', {
             method: 'POST',
             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: `play_count=${playCountValue}&play_interval=${playIntervalValue}`
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status !== 'options_set') {
-                alert(`error: ${data.message}`);
+            body: `play_count=${count}&play_interval=${intervalSec}`
+        }).then(r => r.json())
+        .then(dt => {
+            if (dt.status !== 'options_set') {
+                alert(`error: ${dt.message}`);
             }
-        })
-        .catch(error => {
-            console.error('Error during setPlayOptions:', error);
-        });
+        }).catch(err => console.error(err));
     }
-
     function previousLine() {
         fetch('/get_play_mode')
-        .then(response => response.json())
-        .then(data => {
-            if (data.play_mode === 'sequential') {
+        .then(r => r.json())
+        .then(dt => {
+            if (dt.play_mode === 'sequential') {
                 fetch('/previous', {method: 'POST'})
-                .then(response => response.json())
+                .then(res => res.json())
                 .then(data => {
                     if (data.status === 'success') {
                         isPlaying = false;
@@ -538,26 +441,21 @@
                         document.getElementById('playPauseBtn').textContent = '⏸';
                         playNext();
                     } else {
-                        alert('have first。');
+                        alert('already first。');
                     }
                 })
-                .catch(error => {
-                    console.error('Error during previousLine:', error);
-                });
+                .catch(err => console.error('Error previousLine:', err));
             }
         })
-        .catch(error => {
-            console.error('Error fetching play mode:', error);
-        });
+        .catch(err => console.error('Error fetching play mode:', err));
     }
-
     function nextLine() {
         fetch('/get_play_mode')
-        .then(response => response.json())
-        .then(data => {
-            if (data.play_mode === 'sequential') {
+        .then(r => r.json())
+        .then(dt => {
+            if (dt.play_mode === 'sequential') {
                 fetch('/next', {method: 'POST'})
-                .then(response => response.json())
+                .then(res => res.json())
                 .then(data => {
                     if (data.status === 'success') {
                         isPlaying = false;
@@ -568,39 +466,31 @@
                         document.getElementById('playPauseBtn').textContent = '⏸';
                         playNext();
                     } else {
-                        alert('no much more。');
+                        alert('no more data。');
                     }
                 })
-                .catch(error => {
-                    console.error('Error during nextLine:', error);
-                });
+                .catch(err => console.error('Error nextLine:', err));
             }
         })
-        .catch(error => {
-            console.error('Error fetching play mode:', error);
-        });
+        .catch(err => console.error('Error fetching play mode:', err));
     }
-
     function togglePlayMode() {
         disableButton(toggleModeBtn, 200);
         fetch('/toggle_play_mode', {method: 'POST'})
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'mode_toggled') {
-                if (data.play_mode === 'sequential') {
+        .then(r => r.json())
+        .then(dt => {
+            if (dt.status === 'mode_toggled') {
+                if (dt.play_mode === 'sequential') {
                     toggleModeBtn.textContent = 'sequential';
                     enableNavigationButtons();
-                } else if (data.play_mode === 'random') {
+                } else {
                     toggleModeBtn.textContent = 'random';
                     disableNavigationButtons();
                 }
             }
         })
-        .catch(error => {
-            console.error('Error during togglePlayMode:', error);
-        });
+        .catch(err => console.error('Error togglePlayMode:', err));
     }
-
     function enableNavigationButtons() {
         previousBtn.disabled = false;
         nextBtn.disabled = false;
@@ -609,25 +499,143 @@
         previousBtn.disabled = true;
         nextBtn.disabled = true;
     }
-
     function changePlayCount() {
         playCount = playCount < 3 ? playCount + 1 : 1;
         playCountBtn.textContent = playCount;
-        setPlayOptions(playCount, playInterval / 1000);
+        setPlayOptions(playCount, playInterval/1000);
     }
     function changePlayInterval() {
         playInterval = playInterval < 3000 ? playInterval + 1000 : 1000;
         playIntervalBtn.textContent = playInterval / 1000;
-        setPlayOptions(playCount, playInterval / 1000);
+        setPlayOptions(playCount, playInterval/1000);
     }
-
-    function disableButton(button, duration) {
-        button.disabled = true;
+    function disableButton(btn, duration) {
+        btn.disabled = true;
         setTimeout(() => {
-            button.disabled = false;
+            btn.disabled = false;
         }, duration);
     }
 
+    // 翻译
+    function updateText(text, index) {
+        currentText.innerHTML = '';
+        const regex = /<(\w+):\s*([^>]+)>/g;
+        let lastIndex = 0;
+        let match;
+        while ((match = regex.exec(text)) !== null) {
+            const [fullMatch, color, content] = match;
+            const start = match.index;
+            const end = regex.lastIndex;
+            if (start > lastIndex) {
+                const plainText = text.substring(lastIndex, start).trim();
+                const words = plainText.split(/\s+/);
+                words.forEach(w => {
+                    if (w) {
+                        const span = document.createElement('span');
+                        span.classList.add('highlight');
+                        span.textContent = w;
+                        currentText.appendChild(span);
+                        currentText.appendChild(document.createTextNode(' '));
+                    }
+                });
+            }
+            const coloredWords = content.split(/\s+/);
+            coloredWords.forEach(w => {
+                if (w) {
+                    const span = document.createElement('span');
+                    span.classList.add('highlight', color.toLowerCase());
+                    span.textContent = w;
+                    currentText.appendChild(span);
+                    currentText.appendChild(document.createTextNode(' '));
+                }
+            });
+            lastIndex = end;
+        }
+        if (lastIndex < text.length) {
+            const remain = text.substring(lastIndex).trim();
+            const words = remain.split(/\s+/);
+            words.forEach(w => {
+                if (w) {
+                    const span = document.createElement('span');
+                    span.classList.add('highlight');
+                    span.textContent = w;
+                    currentText.appendChild(span);
+                    currentText.appendChild(document.createTextNode(' '));
+                }
+            });
+        }
+        translateText(text);
+        addWordClickEvents();
+    }
+
+    function translateText(text) {
+        fetch('/translate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ text })
+        })
+        .then(r => r.json())
+        .then(dt => {
+            if (dt.status === 'success') {
+                translatedText.innerText = dt.translated_text;
+            } else if (dt.status === 'missing_translation') {
+                translatedText.innerText = 'No translation found. Try scanning resources.';
+            } else {
+                translatedText.innerText = 'translate error。';
+            }
+        })
+        .catch(err => {
+            console.error('Error translating text:', err);
+            translatedText.innerText = 'translate error。';
+        });
+    }
+
+    // 单词点击
+    function addWordClickEvents() {
+        const words = currentText.querySelectorAll('.highlight');
+        words.forEach(word => {
+            word.onclick = e => {
+                e.stopPropagation();
+                const txt = word.textContent.trim();
+                if (txt) {
+                    fetch('/translate_word', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ text: txt })
+                    })
+                    .then(r => r.json())
+                    .then(dt => {
+                        let translation = 'No translation available';
+                        if (dt.status === 'success') {
+                            translation = dt.translated_text;
+                        }
+                        showWordTooltip(word, translation);
+                    })
+                    .catch(err => {
+                        console.error('Error translating word:', err);
+                        showWordTooltip(word, 'Translation error。');
+                    });
+                }
+            };
+        });
+    }
+    function showWordTooltip(wordElement, translation) {
+        wordTooltip.textContent = translation;
+        wordTooltip.style.display = 'block';
+        const rect = wordElement.getBoundingClientRect();
+        const bodyRect = document.body.getBoundingClientRect();
+        const left = rect.left - bodyRect.left + window.scrollX;
+        const top = rect.top - bodyRect.top + window.scrollY - wordTooltip.offsetHeight - 8;
+        wordTooltip.style.left = left + 'px';
+        wordTooltip.style.top = top + 'px';
+    }
+    document.addEventListener('click', e => {
+        if (!e.target.classList.contains('highlight')) {
+            wordTooltip.style.display = 'none';
+        }
+    });
+
+    // 扫描翻译 & 音频
     function scanTranslationAndAudio() {
         const scanBtn = document.getElementById('scanTranslationAndAudio');
         const scanProgress = document.getElementById('scan-progress');
@@ -637,12 +645,12 @@
         source.onmessage = function(event) {
             const data = JSON.parse(event.data);
             if (data.status === 'working') {
-                scanProgress.innerText = `Resource being generated: ${data.current_index}/${data.total} (${data.progress.toFixed(2)}%)`;
+                scanProgress.innerText = `Generating: ${data.current_index}/${data.total} (${data.progress.toFixed(2)}%)`;
             } else if (data.status === 'done') {
-                scanProgress.innerText = "Complete all resource generation。";
+                scanProgress.innerText = "All resources generated。";
                 source.close();
             } else if (data.status === 'error') {
-                scanProgress.innerText = "An error occurred during generation：" + data.message;
+                scanProgress.innerText = "Error during generation: " + data.message;
                 source.close();
             }
         };
@@ -656,71 +664,17 @@
         fetch('/stop', {method: 'POST'});
     });
 
-    function addWordClickEvents() {
-        const words = currentText.querySelectorAll('.highlight');
-        words.forEach(word => {
-            word.onclick = (e) => {
-                e.stopPropagation();
-                const text = word.textContent.trim();
-                if (text) {
-                    fetch('/translate_word', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({text: text})
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        let translation = 'No translation available';
-                        if (data.status === 'success') {
-                            translation = data.translated_text;
-                        } else if (data.status === 'missing_translation') {
-                            translation = 'No translation available';
-                        }
-                        showWordTooltip(word, translation);
-                    })
-                    .catch(error => {
-                        console.error('Error translating word:', error);
-                        showWordTooltip(word, 'Translation error。');
-                    });
-                }
-            };
-        });
-    }
-
-    function showWordTooltip(wordElement, translation) {
-        wordTooltip.textContent = translation;
-        wordTooltip.style.display = 'block';
-        const rect = wordElement.getBoundingClientRect();
-        const bodyRect = document.body.getBoundingClientRect();
-        const left = rect.left - bodyRect.left + window.scrollX;
-        const top = rect.top - bodyRect.top + window.scrollY - wordTooltip.offsetHeight - 8;
-        wordTooltip.style.left = left + 'px';
-        wordTooltip.style.top = top + 'px';
-    }
-
-    document.addEventListener('click', (e) => {
-        if (!e.target.classList.contains('highlight')) {
-            wordTooltip.style.display = 'none';
-        }
-    });
-
+    // 页面初始化 => 获取当前文本
     function fetchCurrentText() {
-        fetch('/get_current_text', {method: 'GET'})
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success' && data.text && data.sentence_index !== -1) {
-                updateText(data.text, data.sentence_index);
-            } else {
-                console.error('Error fetching current text:', data.message);
+        fetch('/get_current_text')
+        .then(r => r.json())
+        .then(dt => {
+            if (dt.status === 'success' && dt.text && dt.sentence_index !== -1) {
+                updateText(dt.text, dt.sentence_index);
             }
         })
-        .catch(error => {
-            console.error('Error fetching current text:', error);
-        });
+        .catch(err => console.error('Error fetching current text:', err));
     }
-
     window.onload = fetchCurrentText;
   </script>
 </body>
