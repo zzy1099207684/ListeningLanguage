@@ -1,3 +1,15 @@
+create table translations
+(
+    id              serial
+        primary key,
+    original_text   text not null
+        unique,
+    translated_text text
+);
+
+alter table translations
+    owner to postgres;
+
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (230, 'magnets', '磁铁');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (233, 'tour of the office', '办公室参观');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (234, 'passage', '通道');
@@ -1169,3 +1181,14 @@ INSERT INTO public.translations (id, original_text, translated_text) VALUES (169
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (1695, 'act', 'v. 表现；行动');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (1696, 'express', 'v. 表达');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (1697, 'It is possible to ...', 'sentence. 有可能……');
+INSERT INTO public.translations (id, original_text, translated_text) VALUES (1698, 'appear v.出现', 'v. 出现');
+INSERT INTO public.translations (id, original_text, translated_text) VALUES (1699, 'at dusk', 'phrase. 在黄昏时');
+INSERT INTO public.translations (id, original_text, translated_text) VALUES (1700, 'run out of', 'phrase. 用光；耗尽');
+INSERT INTO public.translations (id, original_text, translated_text) VALUES (1701, 'appearance', 'n. 外观；外表；出现');
+INSERT INTO public.translations (id, original_text, translated_text) VALUES (1702, 'stage n.阶段, 舞台', 'n. 阶段；舞台');
+INSERT INTO public.translations (id, original_text, translated_text) VALUES (1703, 'stage by stage', 'adv. 逐步地；一步一步地');
+INSERT INTO public.translations (id, original_text, translated_text) VALUES (1704, 'bright', 'adj. 明亮的；鲜艳的');
+INSERT INTO public.translations (id, original_text, translated_text) VALUES (1705, 'bright colour / dark colour', 'n. 亮色 / 暗色');
+INSERT INTO public.translations (id, original_text, translated_text) VALUES (1706, 'brightness', 'n. 亮度；（在计算机显示器中指）屏幕亮度');
+INSERT INTO public.translations (id, original_text, translated_text) VALUES (1707, 'stocking', 'n. 长袜(女用)');
+INSERT INTO public.translations (id, original_text, translated_text) VALUES (1708, 'sock', 'n. 短袜');

@@ -1,3 +1,14 @@
+create table store
+(
+    id         serial
+        primary key,
+    group_name text,
+    line_text  text not null
+);
+
+alter table store
+    owner to postgres;
+
 INSERT INTO public.store (id, group_name, line_text) VALUES (230, 'group1', 'trumpet');
 INSERT INTO public.store (id, group_name, line_text) VALUES (231, 'group1', 'corresponding');
 INSERT INTO public.store (id, group_name, line_text) VALUES (232, 'group1', 'magnets');
@@ -1191,3 +1202,14 @@ INSERT INTO public.store (id, group_name, line_text) VALUES (1425, 'group1', 'a 
 INSERT INTO public.store (id, group_name, line_text) VALUES (1426, 'group1', 'act');
 INSERT INTO public.store (id, group_name, line_text) VALUES (1427, 'group1', 'express');
 INSERT INTO public.store (id, group_name, line_text) VALUES (1428, 'group1', 'It is possible to ...');
+INSERT INTO public.store (id, group_name, line_text) VALUES (1429, 'group1', 'appear v.出现');
+INSERT INTO public.store (id, group_name, line_text) VALUES (1430, 'group1', 'at dusk');
+INSERT INTO public.store (id, group_name, line_text) VALUES (1431, 'group1', 'run out of');
+INSERT INTO public.store (id, group_name, line_text) VALUES (1432, 'group1', 'appearance');
+INSERT INTO public.store (id, group_name, line_text) VALUES (1433, 'group1', 'stage n.阶段, 舞台');
+INSERT INTO public.store (id, group_name, line_text) VALUES (1434, 'group1', 'stage by stage');
+INSERT INTO public.store (id, group_name, line_text) VALUES (1435, 'group1', 'bright');
+INSERT INTO public.store (id, group_name, line_text) VALUES (1436, 'group1', 'bright colour / dark colour');
+INSERT INTO public.store (id, group_name, line_text) VALUES (1437, 'group1', 'brightness');
+INSERT INTO public.store (id, group_name, line_text) VALUES (1438, 'group1', 'stocking');
+INSERT INTO public.store (id, group_name, line_text) VALUES (1439, 'group1', 'sock');
