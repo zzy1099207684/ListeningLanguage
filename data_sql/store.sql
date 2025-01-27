@@ -1,14 +1,3 @@
-create table store
-(
-    id         serial
-        primary key,
-    group_name text,
-    line_text  text not null
-);
-
-alter table store
-    owner to postgres;
-
 INSERT INTO public.store (id, group_name, line_text) VALUES (230, 'group1', 'trumpet');
 INSERT INTO public.store (id, group_name, line_text) VALUES (231, 'group1', 'corresponding');
 INSERT INTO public.store (id, group_name, line_text) VALUES (232, 'group1', 'magnets');
@@ -22,6 +11,7 @@ INSERT INTO public.store (id, group_name, line_text) VALUES (239, 'group1', 'set
 INSERT INTO public.store (id, group_name, line_text) VALUES (240, 'group1', 'supplies');
 INSERT INTO public.store (id, group_name, line_text) VALUES (248, 'group1', 'film');
 INSERT INTO public.store (id, group_name, line_text) VALUES (255, 'group1', 'angry');
+INSERT INTO public.store (id, group_name, line_text) VALUES (1449, 'group1', 'passion');
 INSERT INTO public.store (id, group_name, line_text) VALUES (262, 'group1', 'it''s none of your business');
 INSERT INTO public.store (id, group_name, line_text) VALUES (267, 'group1', 'just then');
 INSERT INTO public.store (id, group_name, line_text) VALUES (268, 'group1', 'look out of ...');
@@ -39,6 +29,7 @@ INSERT INTO public.store (id, group_name, line_text) VALUES (244, 'group1', 'hav
 INSERT INTO public.store (id, group_name, line_text) VALUES (245, 'group1', 'have a gossip');
 INSERT INTO public.store (id, group_name, line_text) VALUES (247, 'group1', 'cinema');
 INSERT INTO public.store (id, group_name, line_text) VALUES (292, 'group1', 'some');
+INSERT INTO public.store (id, group_name, line_text) VALUES (1457, 'group1', 'straight');
 INSERT INTO public.store (id, group_name, line_text) VALUES (250, 'group1', 'Is the seat taken?');
 INSERT INTO public.store (id, group_name, line_text) VALUES (251, 'group1', 'seat');
 INSERT INTO public.store (id, group_name, line_text) VALUES (294, 'group1', 'a little');
@@ -118,6 +109,8 @@ INSERT INTO public.store (id, group_name, line_text) VALUES (334, 'group1', 'has
 INSERT INTO public.store (id, group_name, line_text) VALUES (333, 'group1', 'has been to ...');
 INSERT INTO public.store (id, group_name, line_text) VALUES (335, 'group1', 'has never been');
 INSERT INTO public.store (id, group_name, line_text) VALUES (348, 'group1', 'firm/company');
+INSERT INTO public.store (id, group_name, line_text) VALUES (1450, 'group1', 'On certain occasions');
+INSERT INTO public.store (id, group_name, line_text) VALUES (1458, 'group1', 'After that');
 INSERT INTO public.store (id, group_name, line_text) VALUES (341, 'group1', 'sweep/swept/swept');
 INSERT INTO public.store (id, group_name, line_text) VALUES (339, 'group1', 'he has not combed his hair yet');
 INSERT INTO public.store (id, group_name, line_text) VALUES (343, 'group1', 'excited');
@@ -272,6 +265,8 @@ INSERT INTO public.store (id, group_name, line_text) VALUES (491, '功能性短�
 INSERT INTO public.store (id, group_name, line_text) VALUES (492, '功能性短语', 'To sum up');
 INSERT INTO public.store (id, group_name, line_text) VALUES (493, '功能性短语', 'In short');
 INSERT INTO public.store (id, group_name, line_text) VALUES (494, '功能性短语', 'At the end of the day');
+INSERT INTO public.store (id, group_name, line_text) VALUES (1451, 'group1', 'certain');
+INSERT INTO public.store (id, group_name, line_text) VALUES (1459, 'group1', 'Stay where you are');
 INSERT INTO public.store (id, group_name, line_text) VALUES (496, 'group1', 'in a way');
 INSERT INTO public.store (id, group_name, line_text) VALUES (516, 'group1', 'By the way, did you finish your homework?');
 INSERT INTO public.store (id, group_name, line_text) VALUES (517, 'group1', 'In a way, I agree with your point of view');
@@ -350,6 +345,7 @@ INSERT INTO public.store (id, group_name, line_text) VALUES (569, 'group1', 'be 
 INSERT INTO public.store (id, group_name, line_text) VALUES (570, 'group1', 'to me');
 INSERT INTO public.store (id, group_name, line_text) VALUES (580, 'group1', 'win won won');
 INSERT INTO public.store (id, group_name, line_text) VALUES (572, 'group1', 'has been');
+INSERT INTO public.store (id, group_name, line_text) VALUES (1452, 'group1', 'A common dream');
 INSERT INTO public.store (id, group_name, line_text) VALUES (676, 'group1', 'around there');
 INSERT INTO public.store (id, group_name, line_text) VALUES (613, 'group1', 'go easy on me');
 INSERT INTO public.store (id, group_name, line_text) VALUES (583, 'group1', 'build/built/built');
@@ -530,6 +526,7 @@ INSERT INTO public.store (id, group_name, line_text) VALUES (751, 'Artificial In
 INSERT INTO public.store (id, group_name, line_text) VALUES (752, 'Artificial Intelligence', 'Regression type');
 INSERT INTO public.store (id, group_name, line_text) VALUES (753, 'Artificial Intelligence', 'evaluation of binary classification');
 INSERT INTO public.store (id, group_name, line_text) VALUES (754, 'Artificial Intelligence', 'evaluation of muticlass classification');
+INSERT INTO public.store (id, group_name, line_text) VALUES (1453, 'group1', 'duty');
 INSERT INTO public.store (id, group_name, line_text) VALUES (756, 'group1', 'concert');
 INSERT INTO public.store (id, group_name, line_text) VALUES (757, 'group1', 'Perhaps/ maybe');
 INSERT INTO public.store (id, group_name, line_text) VALUES (758, 'group1', 'Such a good deal');
@@ -723,6 +720,7 @@ INSERT INTO public.store (id, group_name, line_text) VALUES (946, 'group1', 'per
 INSERT INTO public.store (id, group_name, line_text) VALUES (947, 'group1', 'occasion');
 INSERT INTO public.store (id, group_name, line_text) VALUES (948, 'group1', 'on that occasion');
 INSERT INTO public.store (id, group_name, line_text) VALUES (949, 'group1', 'special occasion');
+INSERT INTO public.store (id, group_name, line_text) VALUES (1454, 'group1', 'swell');
 INSERT INTO public.store (id, group_name, line_text) VALUES (950, 'group1', 'I''m bad at math');
 INSERT INTO public.store (id, group_name, line_text) VALUES (951, 'group1', 'Ready for ...');
 INSERT INTO public.store (id, group_name, line_text) VALUES (952, 'group1', 'Tired of ...');
@@ -1112,13 +1110,11 @@ INSERT INTO public.store (id, group_name, line_text) VALUES (1335, 'group1', 'ph
 INSERT INTO public.store (id, group_name, line_text) VALUES (1336, 'group1', 'Angular frequency');
 INSERT INTO public.store (id, group_name, line_text) VALUES (1337, 'group1', 'amplitude');
 INSERT INTO public.store (id, group_name, line_text) VALUES (1338, 'group1', 'Differentiation equations');
-INSERT INTO public.store (id, group_name, line_text) VALUES (1339, 'group1', 'harmonic oscillation');
-INSERT INTO public.store (id, group_name, line_text) VALUES (1340, 'group1', 'Harmonic motion');
+INSERT INTO public.store (id, group_name, line_text) VALUES (1455, 'group1', 'put up');
 INSERT INTO public.store (id, group_name, line_text) VALUES (1341, 'group1', 'mechanics');
 INSERT INTO public.store (id, group_name, line_text) VALUES (1342, 'group1', 'net');
 INSERT INTO public.store (id, group_name, line_text) VALUES (1343, 'group1', 'formulate');
 INSERT INTO public.store (id, group_name, line_text) VALUES (1344, 'group1', 'damp');
-INSERT INTO public.store (id, group_name, line_text) VALUES (1345, 'group1', 'Damped harmonic motion');
 INSERT INTO public.store (id, group_name, line_text) VALUES (1346, 'group1', 'driven by something');
 INSERT INTO public.store (id, group_name, line_text) VALUES (1347, 'group1', 'resonance');
 INSERT INTO public.store (id, group_name, line_text) VALUES (1348, 'group1', 'revision');
@@ -1132,7 +1128,6 @@ INSERT INTO public.store (id, group_name, line_text) VALUES (1355, 'group1', 'ho
 INSERT INTO public.store (id, group_name, line_text) VALUES (1356, 'group1', 'scent');
 INSERT INTO public.store (id, group_name, line_text) VALUES (1357, 'group1', 'faculty');
 INSERT INTO public.store (id, group_name, line_text) VALUES (1358, 'group1', 'nail');
-INSERT INTO public.store (id, group_name, line_text) VALUES (1359, 'group1', 'motivation');
 INSERT INTO public.store (id, group_name, line_text) VALUES (1360, 'group1', 'bring out');
 INSERT INTO public.store (id, group_name, line_text) VALUES (1361, 'group1', 'job market');
 INSERT INTO public.store (id, group_name, line_text) VALUES (1362, 'group1', 'recruitment');
@@ -1213,3 +1208,13 @@ INSERT INTO public.store (id, group_name, line_text) VALUES (1436, 'group1', 'br
 INSERT INTO public.store (id, group_name, line_text) VALUES (1437, 'group1', 'brightness');
 INSERT INTO public.store (id, group_name, line_text) VALUES (1438, 'group1', 'stocking');
 INSERT INTO public.store (id, group_name, line_text) VALUES (1439, 'group1', 'sock');
+INSERT INTO public.store (id, group_name, line_text) VALUES (1440, 'math', 'displacement');
+INSERT INTO public.store (id, group_name, line_text) VALUES (1441, 'math', 'Equilibrium');
+INSERT INTO public.store (id, group_name, line_text) VALUES (1442, 'math', 'restore');
+INSERT INTO public.store (id, group_name, line_text) VALUES (1443, 'math', 'Constant');
+INSERT INTO public.store (id, group_name, line_text) VALUES (1444, 'math', 'sinusoid');
+INSERT INTO public.store (id, group_name, line_text) VALUES (1445, 'math', 'undergo');
+INSERT INTO public.store (id, group_name, line_text) VALUES (1447, 'math', 'Harmonic motion');
+INSERT INTO public.store (id, group_name, line_text) VALUES (1446, 'math', 'harmonic oscillation');
+INSERT INTO public.store (id, group_name, line_text) VALUES (1448, 'math', 'Damped harmonic motion');
+INSERT INTO public.store (id, group_name, line_text) VALUES (1456, 'group1', 'tight');

@@ -1,15 +1,3 @@
-create table translations
-(
-    id              serial
-        primary key,
-    original_text   text not null
-        unique,
-    translated_text text
-);
-
-alter table translations
-    owner to postgres;
-
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (230, 'magnets', '磁铁');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (233, 'tour of the office', '办公室参观');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (234, 'passage', '通道');
@@ -483,7 +471,6 @@ INSERT INTO public.translations (id, original_text, translated_text) VALUES (911
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (914, 'Crush', 'n. 暗恋，对某人的强烈喜欢。 v. 压碎，碾压。');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (917, 'connection', 'n. 关联性。');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (920, 'take off', 'v. 起飞，飞机离开地面。 v. 脱下，移除衣物。');
-INSERT INTO public.translations (id, original_text, translated_text) VALUES (923, 'swell', 'v. 肿胀，变大。');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (926, 'around there', '在那附近，在那周围');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (938, 'Town hall', 'n. 市政厅');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (941, 'second hand', 'n. 秒针');
@@ -525,6 +512,7 @@ INSERT INTO public.translations (id, original_text, translated_text) VALUES (101
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (1011, 'close to', 'phrase. 靠近/接近');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (1012, 'it''s about to start', 'phrase. 它即将开始');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (865, 'buy/bought/bought', 'verb. 购买');
+INSERT INTO public.translations (id, original_text, translated_text) VALUES (923, 'swell', 'v./n. 膨胀；增大 / 膨胀');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (1013, 'plaster', 'n. 石膏/膏药');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (1014, 'iodophor', 'n. 碘伏');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (1015, 'alcohol', 'n. 酒精');
@@ -837,7 +825,6 @@ INSERT INTO public.translations (id, original_text, translated_text) VALUES (133
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (1337, 'A while ago', 'phrase. 刚才；不久前');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (1338, 'A battle commenced', 'phrase. 战斗开始了');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (1339, 'vanquished', 'v. 彻底击败；战胜');
-INSERT INTO public.translations (id, original_text, translated_text) VALUES (1340, 'restore', 'v. 恢复；复原');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (1341, 'though', 'conj. 尽管； adv. 可是');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (1342, 'at peace', 'phrase. 和平；内心平静');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (1343, 'signs of', 'phrase. ……的迹象');
@@ -943,7 +930,7 @@ INSERT INTO public.translations (id, original_text, translated_text) VALUES (144
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (1448, 'dash', 'v. 猛冲；n. 破折号');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (1449, 'Move to dash', 'phrase. 准备冲刺 / 猛冲');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (1450, 'dash to do something', 'phrase. 冲去做某事');
-INSERT INTO public.translations (id, original_text, translated_text) VALUES (1368, 'motivation', 'n. 动机；积极性');
+INSERT INTO public.translations (id, original_text, translated_text) VALUES (1340, 'restore', 'v. 恢复；复原');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (1409, 'convergence', 'n. 收敛');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (1458, 'racing', 'n. 赛车运动；比赛 / adj. 比赛的');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (1459, 'Tough opponent', 'n. 棘手的对手');
@@ -1092,13 +1079,10 @@ INSERT INTO public.translations (id, original_text, translated_text) VALUES (160
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (1604, 'Angular frequency', 'n. 角频率');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (1386, 'amplitude', 'n. 振幅');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (1606, 'Differentiation equations', 'n. 微分方程');
-INSERT INTO public.translations (id, original_text, translated_text) VALUES (1607, 'harmonic oscillation', 'n. 谐振动；简谐振动');
-INSERT INTO public.translations (id, original_text, translated_text) VALUES (1608, 'Harmonic motion', 'n. 简谐运动');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (1609, 'mechanics', 'n. 力学；机械学');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (1610, 'net', 'n. 网络；净值');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (1611, 'formulate', 'v. 阐述；制定');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (1612, 'damp', 'v. 阻尼；使潮湿 / adj. 潮湿的');
-INSERT INTO public.translations (id, original_text, translated_text) VALUES (1613, 'Damped harmonic motion', 'n. 阻尼谐振动');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (1614, 'driven by something', 'phrase. 被……驱动');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (1615, 'resonance', 'n. 共振');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (1616, 'revision', 'n. 修订；复习');
@@ -1192,3 +1176,21 @@ INSERT INTO public.translations (id, original_text, translated_text) VALUES (170
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (1706, 'brightness', 'n. 亮度；（在计算机显示器中指）屏幕亮度');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (1707, 'stocking', 'n. 长袜(女用)');
 INSERT INTO public.translations (id, original_text, translated_text) VALUES (1708, 'sock', 'n. 短袜');
+INSERT INTO public.translations (id, original_text, translated_text) VALUES (1709, 'displacement', 'n. 位移；位移量');
+INSERT INTO public.translations (id, original_text, translated_text) VALUES (1710, 'Equilibrium', 'n. 平衡；均衡');
+INSERT INTO public.translations (id, original_text, translated_text) VALUES (1712, 'Constant', 'n./adj. 常数；恒定的');
+INSERT INTO public.translations (id, original_text, translated_text) VALUES (1713, 'sinusoid', 'n. 正弦波');
+INSERT INTO public.translations (id, original_text, translated_text) VALUES (1714, 'undergo', 'v. 经历；承受');
+INSERT INTO public.translations (id, original_text, translated_text) VALUES (1718, 'Harmonic motion', 'n. 简谐运动');
+INSERT INTO public.translations (id, original_text, translated_text) VALUES (1719, 'harmonic oscillation', 'n. 谐振动；简谐振动');
+INSERT INTO public.translations (id, original_text, translated_text) VALUES (1720, 'Damped harmonic motion', 'n. 阻尼谐振动');
+INSERT INTO public.translations (id, original_text, translated_text) VALUES (1721, 'passion', 'n. 热情；激情');
+INSERT INTO public.translations (id, original_text, translated_text) VALUES (1722, 'On certain occasions', 'phrase. 在某些场合');
+INSERT INTO public.translations (id, original_text, translated_text) VALUES (1723, 'certain', 'adj. 确定的；某些');
+INSERT INTO public.translations (id, original_text, translated_text) VALUES (1724, 'A common dream', 'phrase. 一个普通的梦想');
+INSERT INTO public.translations (id, original_text, translated_text) VALUES (1725, 'duty', 'n. 责任；义务');
+INSERT INTO public.translations (id, original_text, translated_text) VALUES (1727, 'put up', 'v. 搭建；张贴；忍受');
+INSERT INTO public.translations (id, original_text, translated_text) VALUES (1728, 'tight', 'adj. 紧的；牢固的');
+INSERT INTO public.translations (id, original_text, translated_text) VALUES (1729, 'straight', 'adj./adv. 直的；直接的 / 直着地');
+INSERT INTO public.translations (id, original_text, translated_text) VALUES (1730, 'After that', 'phrase. 之后；在那之后');
+INSERT INTO public.translations (id, original_text, translated_text) VALUES (1731, 'Stay where you are', 'phrase. 待在你所在的位置');
